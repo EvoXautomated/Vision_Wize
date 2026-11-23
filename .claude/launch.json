@@ -1,0 +1,7 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "optica-api", "runtimeExecutable": "npm", "runtimeArgs": ["--prefix", "api", "run", "start:dev"], "port": 4000 },
+    { "name": "optica-web", "runtimeExecutable": "npm", "runtimeArgs": ["--prefix", "web", "run", "dev"], "port": 3010 }
+  ]
+}
