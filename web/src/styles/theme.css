@@ -1,0 +1,120 @@
+/*
+ * =====================================================================
+ *  THEME TOKENS — the single place to re-brand this template.
+ *  ---------------------------------------------------------------------
+ *  Every color in the UI resolves to one of these variables. To adapt the
+ *  template to another client, change the values here (and the fonts in
+ *  src/app/layout.tsx). Component code never hardcodes colors.
+ *
+ *  Values use OKLCH so hue/lightness can be tuned independently.
+ *  Brand hue:205 (pine / evergreen). Accent hue: 70 (amber).
+ * =====================================================================
+ */
+
+:root {
+  /* Surfaces */
+  --background: oklch(0.985 0.004 95);
+  --foreground: oklch(0.18 0.02 205);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.02 205);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.02 205);
+
+  /* Brand */
+  --primary: oklch(0.46 0.085 205);
+  --primary-foreground: oklch(0.985 0.01 205);
+  --secondary: oklch(0.955 0.012 205);
+  --secondary-foreground: oklch(0.3 0.04 205);
+  --accent: oklch(0.945 0.02 205);
+  --accent-foreground: oklch(0.3 0.05 205);
+
+  /* Neutral */
+  --muted: oklch(0.955 0.006 95);
+  --muted-foreground: oklch(0.47 0.02 205);
+  --border: oklch(0.905 0.008 95);
+  --input: oklch(0.885 0.008 95);
+  --ring: oklch(0.56 0.085 205);
+
+  /* Semantic status */
+  --destructive: oklch(0.55 0.2 27);
+  --destructive-foreground: oklch(0.985 0 0);
+  --success: oklch(0.55 0.15 150);
+  --success-foreground: oklch(0.985 0 0);
+  --warning: oklch(0.72 0.16 70);
+  --warning-foreground: oklch(0.22 0.05 70);
+  --info: oklch(0.58 0.14 240);
+  --info-foreground: oklch(0.985 0 0);
+
+  /*
+   * Charts (categorical). Fixed slot order — assign by entity, never by rank,
+   * and never cycle past slot 5. Verified with the dataviz palette validator
+   * (lightness band, chroma floor, colour-vision-deficiency separation,
+   * contrast); re-run it after changing any value. Adjacent CVD separation
+   * sits in the 6–8 band, so charts using these must carry direct labels.
+   */
+  --chart-1: oklch(0.52 0.12 205);
+  --chart-2: oklch(0.72 0.16 70);
+  --chart-3: oklch(0.58 0.14 355);
+  --chart-4: oklch(0.5 0.15 250);
+  --chart-5: oklch(0.62 0.17 300);
+
+  /* Sidebar (deep brand surface in both modes) */
+  --sidebar: oklch(0.23 0.035 205);
+  --sidebar-foreground: oklch(0.9 0.012 205);
+  --sidebar-primary: oklch(0.78 0.15 70);
+  --sidebar-primary-foreground: oklch(0.2 0.05 70);
+  --sidebar-accent: oklch(0.3 0.035 205);
+  --sidebar-accent-foreground: oklch(0.985 0.01 205);
+  --sidebar-border: oklch(0.32 0.03 205);
+  --sidebar-ring: oklch(0.78 0.15 70);
+
+  /* Shape */
+  --radius: 0.625rem;
+}
+
+.dark {
+  --background: oklch(0.155 0.012 205);
+  --foreground: oklch(0.94 0.01 205);
+  --card: oklch(0.2 0.015 205);
+  --card-foreground: oklch(0.94 0.01 205);
+  --popover: oklch(0.21 0.015 205);
+  --popover-foreground: oklch(0.94 0.01 205);
+
+  --primary: oklch(0.72 0.1 205);
+  --primary-foreground: oklch(0.16 0.03 205);
+  --secondary: oklch(0.27 0.02 205);
+  --secondary-foreground: oklch(0.92 0.01 205);
+  --accent: oklch(0.29 0.03 205);
+  --accent-foreground: oklch(0.95 0.01 205);
+
+  --muted: oklch(0.25 0.012 205);
+  --muted-foreground: oklch(0.7 0.015 205);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.65 0.1 205);
+
+  --destructive: oklch(0.68 0.18 25);
+  --destructive-foreground: oklch(0.985 0 0);
+  --success: oklch(0.72 0.15 150);
+  --success-foreground: oklch(0.15 0.03 150);
+  --warning: oklch(0.8 0.15 75);
+  --warning-foreground: oklch(0.2 0.05 75);
+  --info: oklch(0.72 0.12 240);
+  --info-foreground: oklch(0.15 0.03 240);
+
+  /* Dark steps are chosen against the dark surface, not flipped from light. */
+  --chart-1: oklch(0.62 0.12 205);
+  --chart-2: oklch(0.66 0.16 70);
+  --chart-3: oklch(0.55 0.14 355);
+  --chart-4: oklch(0.6 0.15 250);
+  --chart-5: oklch(0.5 0.17 300);
+
+  --sidebar: oklch(0.13 0.012 205);
+  --sidebar-foreground: oklch(0.9 0.012 205);
+  --sidebar-primary: oklch(0.8 0.15 75);
+  --sidebar-primary-foreground: oklch(0.2 0.05 75);
+  --sidebar-accent: oklch(0.22 0.02 205);
+  --sidebar-accent-foreground: oklch(0.985 0.01 205);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.8 0.15 75);
+}

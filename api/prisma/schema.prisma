@@ -1,0 +1,332 @@
+// CRM de la óptica — Fase 1.
+// No se guardan graduaciones, diagnósticos ni seguros médicos: de cada examen
+// solo la fecha (contrato, cláusula 10.4).
+// Nada se borra del todo: clientes y personas tienen borrado lógico
+// (deletedAt) y cada cambio queda en AuditLog.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────── Equipo y sesiones ─────────────────────────
+
+enum Role {
+  owner // dueño: ve y puede todo
+  reception
+  doctor
+  seller
+}
+
+model User {
+  id             String    @id @default(uuid())
+  fullName       String
+  initials       String
+  role           Role
+  email          String?
+  phone          String?
+  active         Boolean   @default(true)
+  pinHash        String
+  failedPinCount Int       @default(0)
+  pinLockedUntil DateTime?
+  deletedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  sessions          Session[]
+  clients           Client[]      @relation("ClientSeller")
+  notes             Note[]
+  visitsAsSeller    Visit[]       @relation("VisitSeller")
+  visitsAsDoctor    Visit[]       @relation("VisitDoctor")
+  appointmentsMade  Appointment[] @relation("AppointmentCreatedBy")
+  appointmentsAsDoc Appointment[] @relation("AppointmentDoctor")
+}
+
+/// Token opaco de acceso. Se guarda solo su hash.
+model Session {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  revokedAt DateTime?
+  deviceId  String? // dispositivo desde el que se abrió (al quitarlo se cierran sus sesiones)
+
+  @@index([userId])
+  @@index([deviceId])
+}
+
+/// Dispositivo autorizado (el iPad de la tienda). Solo desde uno autorizado se
+/// puede ver el equipo y probar un PIN. Se guarda solo el hash de su token.
+model Device {
+  id         String    @id @default(uuid())
+  name       String
+  tokenHash  String    @unique
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime?
+  revokedAt  DateTime?
+}
+
+/// Código de un solo uso (10 minutos, 5 intentos) para autorizar un dispositivo nuevo.
+model DevicePairing {
+  id          String    @id @default(uuid())
+  codeHash    String
+  expiresAt   DateTime
+  attempts    Int       @default(0)
+  usedAt      DateTime?
+  createdById String
+  createdAt   DateTime  @default(now())
+}
+
+// ───────────────────────── Clientes ─────────────────────────
+
+enum ContactPref {
+  sms
+  email
+  call
+  none
+}
+
+model Client {
+  id          String      @id @default(uuid())
+  firstName   String
+  lastName    String
+  searchKey   String      @default("") // nombre sin acentos ni mayúsculas, para buscar
+  phone       String? // solo dígitos, formato E.164 sin '+': 13055551234
+  email       String? // en minúsculas
+  birthDate   DateTime?   @db.Date
+  address     String?
+  contactPref ContactPref @default(sms)
+
+  // Consentimiento (TCPA): se guarda cuándo se dio y cuándo se retiró.
+  smsConsentAt   DateTime?
+  emailConsentAt DateTime?
+  unsubscribedAt DateTime? // baja de todos los mensajes de marketing
+  sellerId       String?
+  seller         User?     @relation("ClientSeller", fields: [sellerId], references: [id])
+  priorExamAt    DateTime? @db.Date // examen anterior al sistema (importado o anotado a mano)
+  lastExamAt     DateTime? @db.Date // el más reciente entre priorExamAt y sus visitas
+  nextExamDue    DateTime? @db.Date // lastExamAt + meses de revisión (se recalcula)
+  firstVisitAt   DateTime?
+  source         String? // cómo nos conoció
+  extra          Json      @default("{}") // campos propios de la óptica
+  mergedIntoId   String? // ficha unida a otra: se oculta y redirige
+  deletedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  tags         ClientTag[]
+  notes        Note[]
+  visits       Visit[]
+  appointments Appointment[]
+  messages     Message[]
+
+  @@index([phone])
+  @@index([email])
+  @@index([lastName, firstName])
+  @@index([searchKey])
+  @@index([nextExamDue])
+}
+
+model Tag {
+  id        String      @id @default(uuid())
+  name      String      @unique
+  color     String      @default("slate")
+  createdAt DateTime    @default(now())
+  clients   ClientTag[]
+}
+
+model ClientTag {
+  clientId String
+  tagId    String
+  client   Client @relation(fields: [clientId], references: [id])
+  tag      Tag    @relation(fields: [tagId], references: [id])
+
+  @@id([clientId, tagId])
+}
+
+model Note {
+  id        String   @id @default(uuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id])
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([clientId, createdAt])
+}
+
+// ───────────────────────── Visitas y agenda ─────────────────────────
+
+/// recepción → examen → venta → lentes listos → entregado
+enum VisitStatus {
+  reception
+  exam
+  sale
+  ready
+  delivered
+  cancelled
+}
+
+model Visit {
+  id            String       @id @default(uuid())
+  clientId      String
+  client        Client       @relation(fields: [clientId], references: [id])
+  status        VisitStatus  @default(reception)
+  sellerId      String?
+  seller        User?        @relation("VisitSeller", fields: [sellerId], references: [id])
+  doctorId      String?
+  doctor        User?        @relation("VisitDoctor", fields: [doctorId], references: [id])
+  examDate      DateTime?    @db.Date // solo la fecha, nunca la graduación
+  frame         String? // montura elegida o comprada (texto en Fase 1)
+  notes         String?
+  appointmentId String?      @unique
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+  statusAt      DateTime     @default(now()) // cuándo entró en el estado actual
+  readyAt       DateTime?
+  deliveredAt   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([status])
+  @@index([clientId, createdAt])
+}
+
+enum AppointmentStatus {
+  scheduled
+  confirmed
+  arrived // se convirtió en visita
+  no_show
+  cancelled
+}
+
+model Appointment {
+  id                 String            @id @default(uuid())
+  clientId           String
+  client             Client            @relation(fields: [clientId], references: [id])
+  startsAt           DateTime
+  durationMin        Int               @default(30)
+  status             AppointmentStatus @default(scheduled)
+  doctorId           String?
+  doctor             User?             @relation("AppointmentDoctor", fields: [doctorId], references: [id])
+  notes              String?
+  createdById        String
+  createdBy          User              @relation("AppointmentCreatedBy", fields: [createdById], references: [id])
+  confirmationSentAt DateTime?
+  reminderSentAt     DateTime?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  visit              Visit?
+
+  @@index([startsAt])
+  @@index([clientId])
+}
+
+// ───────────────────────── Mensajes ─────────────────────────
+
+enum Channel {
+  email
+  sms
+  call // va a la lista «por llamar»
+}
+
+enum MessageKind {
+  exam_reminder
+  exam_reminder_2
+  appt_confirmation
+  appt_reminder
+  ready
+  welcome
+  birthday
+  campaign
+  test
+}
+
+enum MessageStatus {
+  queued
+  sent
+  delivered
+  failed
+  skipped // sin consentimiento, baja o sin dato de contacto
+  done // llamada hecha (canal call)
+}
+
+/// Cada mensaje automático o de campaña. `dedupeKey` evita enviar dos veces
+/// el mismo aviso (p. ej. el recordatorio de un examen concreto).
+model Message {
+  id         String        @id @default(uuid())
+  clientId   String?
+  client     Client?       @relation(fields: [clientId], references: [id])
+  channel    Channel
+  kind       MessageKind
+  status     MessageStatus @default(queued)
+  to         String?
+  subject    String?
+  body       String
+  dedupeKey  String?       @unique
+  campaignId String?
+  campaign   Campaign?     @relation(fields: [campaignId], references: [id])
+  providerId String?       @unique // id del proveedor (Twilio SID / Resend id) para los avisos de entrega
+  error      String?
+  sentAt     DateTime?
+  createdAt  DateTime      @default(now())
+
+  @@index([status, channel])
+  @@index([clientId, createdAt])
+  @@index([campaignId])
+}
+
+enum CampaignStatus {
+  draft
+  sent
+}
+
+/// Campaña a un segmento de clientes. `segment` guarda el filtro:
+/// { tags?: string[], sellerId?: string, birthdayMonth?: boolean,
+///   inactiveMonths?: number, examOverdue?: boolean }
+model Campaign {
+  id          String         @id @default(uuid())
+  name        String
+  channel     Channel // sms o email
+  subject     String?
+  body        String
+  segment     Json           @default("{}")
+  status      CampaignStatus @default(draft)
+  createdById String
+  sentAt      DateTime?
+  recipients  Int            @default(0) // a cuántos se envió
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  messages    Message[]
+}
+
+// ───────────────────────── Ajustes y registro ─────────────────────────
+
+/// Ajustes de la óptica (nombre, horario, meses de revisión, plantillas…).
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+/// Registro de cambios: quién hizo qué y cuándo.
+model AuditLog {
+  id        String   @id @default(uuid())
+  actorId   String?
+  entity    String // client, visit, appointment, user, tag, setting…
+  entityId  String
+  action    String // create, update, delete, merge, status…
+  changes   Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId, createdAt])
+  @@index([createdAt])
+}
