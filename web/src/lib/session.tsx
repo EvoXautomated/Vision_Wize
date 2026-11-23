@@ -1,13 +1,16 @@
 "use client"
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react"
-import { api, tokenStore } from "./api"
+import { api, ApiError, tokenStore } from "./api"
 import type { User } from "./types"
 
 interface SessionValue {
   user: User | null
   grants: string[]
   loading: boolean
+  /** Hay sesión guardada pero no se pudo comprobar (sin conexión). */
+  offline: boolean
+  retry: () => void
   can: (perm: string) => boolean
   login: (userId: string, pin: string) => Promise<void>
   logout: () => Promise<void>
@@ -21,15 +24,28 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   // Sin token guardado no hay nada que comprobar.
   const [loading, setLoading] = useState(() => typeof window !== "undefined" && !!tokenStore.get())
 
+  const [offline, setOffline] = useState(false)
+  const [attempt, setAttempt] = useState(0)
+
   useEffect(() => {
     if (!tokenStore.get()) return
     api<{ user: User; grants: string[] }>("/auth/me")
       .then((r) => {
         setUser(r.user)
         setGrants(r.grants)
+        setOffline(false)
       })
-      .catch(() => tokenStore.clear())
+      .catch((e) => {
+        // Solo un 401 cierra la sesión; un corte de wifi no debe mandar al PIN.
+        if (e instanceof ApiError && e.status === 401) tokenStore.clear()
+        else setOffline(true)
+      })
       .finally(() => setLoading(false))
+  }, [attempt])
+
+  const retry = useCallback(() => {
+    setLoading(true)
+    setAttempt((n) => n + 1)
   }, [])
 
   const login = useCallback(async (userId: string, pin: string) => {
@@ -49,7 +65,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const can = useCallback((perm: string) => user?.role === "owner" || grants.includes(perm), [user, grants])
 
   return (
-    <SessionContext.Provider value={{ user, grants, loading, can, login, logout }}>{children}</SessionContext.Provider>
+    <SessionContext.Provider value={{ user, grants, loading, offline, retry, can, login, logout }}>{children}</SessionContext.Provider>
   )
 }
 

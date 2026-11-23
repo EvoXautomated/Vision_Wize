@@ -1,7 +1,7 @@
 "use client"
 
 import { useQuery } from "@tanstack/react-query"
-import { CalendarDaysIcon, GlassesIcon, LogOutIcon, PhoneIcon, SettingsIcon, SunIcon, UsersIcon } from "lucide-react"
+import { CalendarDaysIcon, GlassesIcon, LogOutIcon, PhoneIcon, SettingsIcon, SunIcon, UsersIcon, WifiOffIcon } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect } from "react"
@@ -19,7 +19,7 @@ const NAV = [
 ]
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { user, loading, logout, can } = useSession()
+  const { user, loading, offline, retry, logout, can } = useSession()
   const router = useRouter()
   const path = usePathname()
   const calls = useQuery({
@@ -30,9 +30,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   })
 
   useEffect(() => {
-    if (!loading && !user) router.replace("/login")
-  }, [loading, user, router])
+    if (!loading && !user && !offline) router.replace("/login")
+  }, [loading, user, offline, router])
 
+  if (!user && offline && !loading) {
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-4 p-6 text-center">
+        <WifiOffIcon className="size-10 text-muted-foreground" />
+        <div>
+          <p className="text-lg font-medium">Sin conexión con el servidor</p>
+          <p className="text-muted-foreground">Revisa el wifi del iPad. Tu sesión sigue abierta.</p>
+        </div>
+        <button onClick={retry} className="h-11 rounded-lg bg-primary px-5 font-medium text-primary-foreground">Reintentar</button>
+      </div>
+    )
+  }
   if (!user) return null
 
   const nav = can("settings.manage") ? [...NAV, { href: "/ajustes", label: "Ajustes", icon: SettingsIcon }] : NAV

@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useState } from "react"
 import { toast } from "sonner"
 import { NativeSelect } from "@/components/native-select"
+import { FormField } from "@/components/form-field"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -108,11 +109,11 @@ function VisitForm({ visit, onOpenChange }: { visit: Visit; onOpenChange: (o: bo
         </div>
 
         <div className="grid gap-4">
-          <div>
-            <Label className="mb-1.5 block text-muted-foreground">Fecha del examen</Label>
+          <div className="grid gap-1.5">
+            <Label htmlFor="visit-exam-date" className="text-muted-foreground">Fecha del examen</Label>
             {can("exam.write") ? (
               <div className="flex gap-2">
-                <Input type="date" max={localYmd()} value={examDate} onChange={(e) => setExamDate(e.target.value)} />
+                <Input id="visit-exam-date" type="date" max={localYmd()} value={examDate} onChange={(e) => setExamDate(e.target.value)} />
                 <Button variant="outline" onClick={() => setExamDate(localYmd())}>Hoy</Button>
               </div>
             ) : (
@@ -121,22 +122,13 @@ function VisitForm({ visit, onOpenChange }: { visit: Visit; onOpenChange: (o: bo
             <p className="mt-1 text-xs text-muted-foreground">Solo la fecha. El sistema no guarda graduaciones ni diagnósticos.</p>
           </div>
           {can("sales.read") && (
-            <div>
-              <Label className="mb-1.5 block text-muted-foreground">Montura elegida o comprada</Label>
-              <Input placeholder="Marca, modelo y color" value={frame} onChange={(e) => setFrame(e.target.value)} />
-            </div>
+            <FormField label="Montura elegida o comprada"><Input placeholder="Marca, modelo y color" value={frame} onChange={(e) => setFrame(e.target.value)} /></FormField>
           )}
-          <div>
-            <Label className="mb-1.5 block text-muted-foreground">Vendedora</Label>
-            <NativeSelect value={sellerId} onChange={(e) => setSellerId(e.target.value)}>
+          <FormField label="Vendedora"><NativeSelect value={sellerId} onChange={(e) => setSellerId(e.target.value)}>
               <option value="">Sin asignar</option>
               {sellers.map((u) => <option key={u.id} value={u.id}>{u.fullName}</option>)}
-            </NativeSelect>
-          </div>
-          <div>
-            <Label className="mb-1.5 block text-muted-foreground">Notas de la visita</Label>
-            <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
-          </div>
+            </NativeSelect></FormField>
+          <FormField label="Notas de la visita"><Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></FormField>
         </div>
 
         <DialogFooter>

@@ -490,7 +490,9 @@ export class ClientsService {
       items.push({
         at: m.sentAt ?? m.createdAt,
         type: 'message',
-        title: `${MESSAGE_LABEL[m.kind] ?? 'Mensaje'} (${m.channel}) · ${MESSAGE_STATUS[m.status] ?? m.status}`,
+        title: `${MESSAGE_LABEL[m.kind] ?? 'Mensaje'} (${m.channel === 'call' ? 'llamada' : m.channel}) · ${
+          m.error?.startsWith('Modo prueba') ? 'modo prueba, no salió' : (MESSAGE_STATUS[m.status] ?? m.status)
+        }`,
         detail: m.channel === 'call' ? null : m.body,
       });
     }

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Param, Post, Res } from '@nestjs/common';
+import { Controller, Get, Param, Post, Res } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { Can, Public } from '../common/decorators.js';
@@ -8,22 +8,6 @@ import { MessagesService } from './messages.service.js';
 @Controller()
 export class MessagesController {
   constructor(private readonly messages: MessagesService) {}
-
-  /** Lista «por llamar»: avisos para clientes sin correo ni SMS. */
-  @ApiBearerAuth()
-  @Can('clients.read')
-  @Get('calls')
-  calls() {
-    return this.messages.callList();
-  }
-
-  @ApiBearerAuth()
-  @Can('clients.read')
-  @Post('calls/:id/done')
-  @HttpCode(204)
-  called(@Param('id') id: string, @Body() body: { outcome?: string }) {
-    return this.messages.markCalled(id, body?.outcome);
-  }
 
   @ApiBearerAuth()
   @Can('settings.manage')

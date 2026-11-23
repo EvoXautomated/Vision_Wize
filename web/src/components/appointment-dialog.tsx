@@ -6,10 +6,10 @@ import { useState } from "react"
 import { toast } from "sonner"
 import { ClientPicker } from "@/components/client-picker"
 import { NativeSelect } from "@/components/native-select"
+import { FormField } from "@/components/form-field"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/lib/api"
 import { APPT_LABEL } from "@/lib/format"
@@ -96,8 +96,8 @@ function AppointmentForm({ onOpenChange, client, appointment, defaultDate }: {
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>{appointment ? "Cita" : "Agendar cita"}</DialogTitle></DialogHeader>
           <div className="grid gap-4">
-            <div>
-              <Label className="mb-1.5 block text-muted-foreground">Cliente</Label>
+            <div className="grid gap-1.5">
+              <span className="text-sm font-medium text-muted-foreground">Cliente</span>
               {who ? (
                 <div className="flex items-center justify-between rounded-lg border p-2.5">
                   <span className="font-medium">{who.fullName}</span>
@@ -108,32 +108,17 @@ function AppointmentForm({ onOpenChange, client, appointment, defaultDate }: {
               )}
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="mb-1.5 block text-muted-foreground">Día</Label>
-                <Input type="date" disabled={!editable} value={date} onChange={(e) => setDate(e.target.value)} />
-              </div>
-              <div>
-                <Label className="mb-1.5 block text-muted-foreground">Hora</Label>
-                <Input type="time" step={900} disabled={!editable} value={time} onChange={(e) => setTime(e.target.value)} />
-              </div>
-              <div>
-                <Label className="mb-1.5 block text-muted-foreground">Duración</Label>
-                <NativeSelect disabled={!editable} value={duration} onChange={(e) => setDuration(Number(e.target.value))}>
+              <FormField label="Día"><Input type="date" disabled={!editable} value={date} onChange={(e) => setDate(e.target.value)} /></FormField>
+              <FormField label="Hora"><Input type="time" step={900} disabled={!editable} value={time} onChange={(e) => setTime(e.target.value)} /></FormField>
+              <FormField label="Duración"><NativeSelect disabled={!editable} value={duration} onChange={(e) => setDuration(Number(e.target.value))}>
                   {[15, 20, 30, 45, 60, 90].map((m) => <option key={m} value={m}>{m} min</option>)}
-                </NativeSelect>
-              </div>
-              <div>
-                <Label className="mb-1.5 block text-muted-foreground">Médico</Label>
-                <NativeSelect disabled={!editable} value={doctorId} onChange={(e) => setDoctorId(e.target.value)}>
+                </NativeSelect></FormField>
+              <FormField label="Médico"><NativeSelect disabled={!editable} value={doctorId} onChange={(e) => setDoctorId(e.target.value)}>
                   <option value="">Cualquiera</option>
                   {doctors.map((u) => <option key={u.id} value={u.id}>{u.fullName}</option>)}
-                </NativeSelect>
-              </div>
+                </NativeSelect></FormField>
             </div>
-            <div>
-              <Label className="mb-1.5 block text-muted-foreground">Notas</Label>
-              <Textarea rows={2} disabled={!editable} value={notes} onChange={(e) => setNotes(e.target.value)} />
-            </div>
+            <FormField label="Notas"><Textarea rows={2} disabled={!editable} value={notes} onChange={(e) => setNotes(e.target.value)} /></FormField>
             {appointment && <p className="text-sm text-muted-foreground">Estado: {APPT_LABEL[appointment.status]}</p>}
           </div>
           <DialogFooter className="flex-wrap">

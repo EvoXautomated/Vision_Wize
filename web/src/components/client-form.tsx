@@ -6,10 +6,10 @@ import Link from "next/link"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import { NativeSelect } from "@/components/native-select"
+import { FormField } from "@/components/form-field"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { api, ApiError } from "@/lib/api"
 import { CONTACT_LABEL, formatPhone } from "@/lib/format"
@@ -222,13 +222,8 @@ function ClientForm({ client, onOpenChange, onSaved }: {
   )
 }
 
-function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
-  return (
-    <div className={className}>
-      <Label className="mb-1.5 block text-muted-foreground">{label}</Label>
-      {children}
-    </div>
-  )
+function Field({ label, children, className }: { label: string; children: React.ReactElement<{ id?: string }>; className?: string }) {
+  return <FormField label={label} className={className}>{children}</FormField>
 }
 
 function Consent({ checked, onChange, label, hint }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint?: string }) {

@@ -174,6 +174,7 @@ export class MessagesService {
         status: { in: [AppointmentStatus.scheduled, AppointmentStatus.confirmed] },
         startsAt: { gte: new Date(now + 20 * 3_600_000), lte: new Date(now + 28 * 3_600_000) },
         reminderSentAt: null,
+        client: { deletedAt: null, mergedIntoId: null },
       },
       include: { client: true },
     });
@@ -333,9 +334,10 @@ export class MessagesService {
 
   // ───────────── Lista «por llamar» y registro ─────────────
 
-  async callList() {
+  /** Avisos pendientes de llamar, solo de los clientes que `visible` deja ver. */
+  async callList(visible: Prisma.ClientWhereInput) {
     const rows = await this.prisma.message.findMany({
-      where: { channel: Channel.call, status: MessageStatus.queued, client: { deletedAt: null } },
+      where: { channel: Channel.call, status: MessageStatus.queued, client: visible },
       include: { client: { select: { id: true, firstName: true, lastName: true, phone: true, lastExamAt: true } } },
       orderBy: { createdAt: 'asc' },
     });
@@ -348,11 +350,12 @@ export class MessagesService {
     }));
   }
 
-  async markCalled(id: string, outcome: string | undefined) {
-    await this.prisma.message.update({
-      where: { id },
+  async markCalled(id: string, outcome: string | undefined, visible: Prisma.ClientWhereInput) {
+    const done = await this.prisma.message.updateMany({
+      where: { id, channel: Channel.call, status: MessageStatus.queued, client: visible },
       data: { status: MessageStatus.done, sentAt: new Date(), error: outcome ?? null },
     });
+    if (!done.count) throw new NotFoundException('Llamada no encontrada');
   }
 
   async recent(limit = 100) {

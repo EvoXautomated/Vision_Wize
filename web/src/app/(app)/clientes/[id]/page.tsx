@@ -153,8 +153,8 @@ export default function ClientPage() {
             <TabsTrigger value="appointments">Citas ({appts.data?.length ?? 0})</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="timeline" className="grid gap-3">
-            <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); if (note.trim()) addNote.mutate() }}>
+          <TabsContent value="timeline" className="grid content-start gap-3">
+            <form className="flex items-start gap-2" onSubmit={(e) => { e.preventDefault(); if (note.trim()) addNote.mutate() }}>
               <Textarea rows={2} placeholder="Añadir una nota…" value={note} onChange={(e) => setNote(e.target.value)} />
               <Button type="submit" size="lg" disabled={!note.trim() || addNote.isPending}>Guardar</Button>
             </form>

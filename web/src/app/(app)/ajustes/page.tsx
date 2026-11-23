@@ -7,11 +7,11 @@ import { toast } from "sonner"
 import { TAG_COLOR_NAMES, TagBadge } from "@/components/badges"
 import { NativeSelect } from "@/components/native-select"
 import { Badge } from "@/components/ui/badge"
+import { FormField } from "@/components/form-field"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
@@ -134,18 +134,12 @@ function UserForm({ user, onClose, onSaved }: { user: User | "new"; onClose: () 
       <DialogContent>
         <DialogHeader><DialogTitle>{isNew ? "Añadir persona" : "Editar persona"}</DialogTitle></DialogHeader>
         <div className="grid gap-3">
-          <div><Label className="mb-1.5 block">Nombre</Label><Input value={fullName} onChange={(e) => setFullName(e.target.value)} /></div>
-          <div>
-            <Label className="mb-1.5 block">Rol</Label>
-            <NativeSelect value={role} onChange={(e) => setRole(e.target.value as Role)}>
+          <FormField label="Nombre"><Input value={fullName} onChange={(e) => setFullName(e.target.value)} /></FormField>
+          <FormField label="Rol"><NativeSelect value={role} onChange={(e) => setRole(e.target.value as Role)}>
               {(Object.keys(ROLE_LABEL) as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
-            </NativeSelect>
-          </div>
-          <div><Label className="mb-1.5 block">Correo (opcional)</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-          <div>
-            <Label className="mb-1.5 block">{isNew ? "PIN de 4 dígitos" : "Nuevo PIN (déjalo vacío para no cambiarlo)"}</Label>
-            <Input inputMode="numeric" maxLength={4} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} />
-          </div>
+            </NativeSelect></FormField>
+          <FormField label="Correo (opcional)"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></FormField>
+          <FormField label={isNew ? "PIN de 4 dígitos" : "Nuevo PIN (déjalo vacío para no cambiarlo)"}><Input inputMode="numeric" maxLength={4} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} /></FormField>
           {!isNew && (
             <label className="flex items-center justify-between"><span className="text-sm">Activo (puede entrar)</span><Switch checked={active} onCheckedChange={setActive} /></label>
           )}
@@ -275,14 +269,11 @@ function MessagesForm({ settings, save }: { settings: Settings; save: ReturnType
             <NumberField label="Enviar desde (hora)" value={m.sendFromHour} onChange={(v) => setM({ sendFromHour: v })} />
             <NumberField label="Enviar hasta (hora)" value={m.sendToHour} onChange={(v) => setM({ sendToHour: v })} />
           </div>
-          <div><Label className="mb-1.5 block">Firma de los mensajes</Label><Input value={m.signature} onChange={(e) => setM({ signature: e.target.value })} /></div>
+          <FormField label="Firma de los mensajes"><Input value={m.signature} onChange={(e) => setM({ signature: e.target.value })} /></FormField>
           <div className="grid gap-3">
             <p className="text-sm text-muted-foreground">Textos. Puedes usar {"{nombre}"}, {"{optica}"}, {"{telefono}"}, {"{fecha}"}, {"{hora}"} y {"{resena}"}.</p>
             {TEMPLATE_KINDS.map((k) => (
-              <div key={k}>
-                <Label className="mb-1.5 block">{MESSAGE_KIND_LABEL[k]}</Label>
-                <Textarea rows={2} value={m.templates[k] ?? ""} onChange={(e) => setM({ templates: { ...m.templates, [k]: e.target.value } })} />
-              </div>
+              <FormField key={k} label={MESSAGE_KIND_LABEL[k]}><Textarea rows={2} value={m.templates[k] ?? ""} onChange={(e) => setM({ templates: { ...m.templates, [k]: e.target.value } })} /></FormField>
             ))}
           </div>
           <div className="flex flex-wrap gap-2">
@@ -320,10 +311,7 @@ function MessagesForm({ settings, save }: { settings: Settings; save: ReturnType
 
 function NumberField({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
   return (
-    <div>
-      <Label className="mb-1.5 block">{label}</Label>
-      <Input type="number" inputMode="numeric" min={0} value={value} onChange={(e) => onChange(Number(e.target.value))} />
-    </div>
+    <FormField label={label}><Input type="number" inputMode="numeric" min={0} value={value} onChange={(e) => onChange(Number(e.target.value))} /></FormField>
   )
 }
 
@@ -345,7 +333,7 @@ function BusinessForm({ initial, save }: { initial: Settings["business"]; save: 
       <CardHeader><CardTitle>Datos de la óptica</CardTitle><CardDescription>Se usan en los mensajes a los clientes.</CardDescription></CardHeader>
       <CardContent className="grid gap-3 sm:grid-cols-2">
         {fields.map(([k, label]) => (
-          <div key={k}><Label className="mb-1.5 block">{label}</Label><Input value={b[k]} onChange={(e) => setB({ ...b, [k]: e.target.value })} /></div>
+          <FormField key={k} label={label}><Input value={b[k]} onChange={(e) => setB({ ...b, [k]: e.target.value })} /></FormField>
         ))}
         <Button size="lg" className="justify-self-start" disabled={save.isPending} onClick={() => save.mutate({ business: b })}>Guardar</Button>
       </CardContent>

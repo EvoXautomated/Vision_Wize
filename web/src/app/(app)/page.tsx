@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { api } from "@/lib/api"
 import { ago, APPT_LABEL, formatDay, formatPhone, formatTime, VISIT_LABEL } from "@/lib/format"
 import { useSession } from "@/lib/session"
-import type { Appointment, Client, Visit, VisitStatus } from "@/lib/types"
+import type { Appointment, Client, Settings, Visit, VisitStatus } from "@/lib/types"
 
 interface Today {
   date: string
@@ -28,6 +28,8 @@ export default function TodayPage() {
   const qc = useQueryClient()
   const { user, can } = useSession()
   const today = useQuery({ queryKey: ["today"], queryFn: () => api<Today>("/today"), refetchInterval: 20_000 })
+  const settings = useQuery({ queryKey: ["settings"], queryFn: () => api<Settings>("/settings"), enabled: can("settings.manage") })
+  const missingBusiness = settings.data && (!settings.data.business.phone || settings.data.business.name === "Mi Óptica")
   const [picking, setPicking] = useState(false)
   const [open, setOpen] = useState<Visit | null>(null)
   const status = useVisitStatus()
@@ -67,6 +69,12 @@ export default function TodayPage() {
           <Button size="lg" onClick={() => setPicking(true)}><PlusIcon /> Llegó un cliente</Button>
         </div>
       </div>
+
+      {missingBusiness && (
+        <Link href="/ajustes" className="rounded-xl border border-warning bg-warning/10 p-4 text-sm">
+          <b>Completa los datos de la óptica</b> (nombre y teléfono) en Ajustes → La óptica. Se usan en los mensajes a los clientes.
+        </Link>
+      )}
 
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
         {COLUMNS.map((col) => {

@@ -31,12 +31,15 @@ export function ClientPicker({ open, onOpenChange, title, onPick }: {
   const pick = (c: Client) => {
     onPick(c)
     onOpenChange(false)
-    setQ("")
+  }
+  const change = (o: boolean) => {
+    if (o) setQ("")
+    onOpenChange(o)
   }
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog open={open} onOpenChange={change}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
           <div className="relative">

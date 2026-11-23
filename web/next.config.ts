@@ -1,10 +1,9 @@
 import type { NextConfig } from "next";
 
+// App 100 % cliente (sesión y datos en el iPad, vía la API): sin Cache Components.
 const nextConfig: NextConfig = {
-  /* config options here */
-  cacheComponents: true,
-  partialPrefetching: true,
   turbopack: {
+    root: __dirname,
     rules: {
       "*.css": {
         loaders: ["@tailwindcss/turbopack"],
