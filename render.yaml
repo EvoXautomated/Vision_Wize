@@ -16,8 +16,9 @@ services:
     region: virginia
     plan: 0.5c-512mb
     rootDir: api
-    dockerfilePath: ./api/Dockerfile
-    dockerContext: ./api
+    # Con rootDir, estas rutas son relativas a esa carpeta.
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     healthCheckPath: /health
     autoDeployTrigger: "off" # se despliega a mano hasta que la rama sea main
     numInstances: 1 # el reloj de los mensajes no admite más de una
@@ -46,8 +47,9 @@ services:
     region: virginia
     plan: 0.5c-512mb
     rootDir: web
-    dockerfilePath: ./web/Dockerfile
-    dockerContext: ./web
+    # Con rootDir, estas rutas son relativas a esa carpeta.
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     healthCheckPath: /login
     autoDeployTrigger: "off"
     envVars:
