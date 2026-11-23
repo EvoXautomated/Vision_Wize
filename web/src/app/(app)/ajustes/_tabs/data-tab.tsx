@@ -7,8 +7,8 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
+import { useT } from "@/i18n"
 import { api, download } from "@/lib/api"
-import { plural } from "@/lib/format"
 
 interface ImportReport {
   dryRun: boolean
@@ -66,6 +66,7 @@ function parseCsv(text: string): string[][] {
 
 export function DataTab() {
   const qc = useQueryClient()
+  const t = useT().settings.data
   const input = useRef<HTMLInputElement>(null)
   const [rows, setRows] = useState<Record<string, unknown>[] | null>(null)
   const [fileName, setFileName] = useState("")
@@ -78,7 +79,7 @@ export function DataTab() {
       setReport(r)
       if (!r.dryRun) {
         qc.invalidateQueries({ queryKey: ["clients"] })
-        toast.success(`${r.summary.new} clientes importados`)
+        toast.success(t.imported(r.summary.new))
         setRows(null)
       }
     },
@@ -93,7 +94,7 @@ export function DataTab() {
       setRows(data)
       setReport(null)
     } catch {
-      toast.error("No se pudo leer el archivo. Guárdalo como Excel (.xlsx) o CSV.")
+      toast.error(t.readError)
     }
   }
 
@@ -107,47 +108,46 @@ export function DataTab() {
     <div className="grid gap-4">
       <Card>
         <CardHeader>
-          <CardTitle>Importar clientes desde Excel</CardTitle>
+          <CardTitle>{t.importTitle}</CardTitle>
           <CardDescription>
-            Columnas que se reconocen: Nombre, Apellidos (o Nombre completo), Teléfono, Correo, Fecha de nacimiento, Dirección, Último examen y Etiquetas.
-            Primero verás un informe; nada se guarda hasta que confirmes. Los importados no reciben mensajes de marketing hasta que den su consentimiento.
+            {t.importDescription}
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
           <input ref={input} type="file" accept=".xlsx,.csv" className="hidden" onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = "" }} />
           <label className="flex items-center justify-between gap-3 rounded-lg border p-3">
             <span>
-              <span className="block text-sm font-medium">Importar también la columna «Notas»</span>
+              <span className="block text-sm font-medium">{t.notes}</span>
               <span className="block text-sm text-muted-foreground">
-                Revísala antes: las graduaciones, los diagnósticos y los seguros médicos no se pueden guardar. Las notas que lo parezcan se descartan solas.
+                {t.notesHint}
               </span>
             </span>
             <Switch checked={includeNotes} onCheckedChange={setIncludeNotes} />
           </label>
-          <Button size="lg" variant="outline" className="justify-self-start" onClick={() => input.current?.click()}><UploadIcon /> Elegir archivo</Button>
+          <Button size="lg" variant="outline" className="justify-self-start" onClick={() => input.current?.click()}><UploadIcon /> {t.chooseFile}</Button>
           {report && (
             <div className="grid gap-3">
               <p className="text-sm">
-                <b>{fileName}</b>: {report.summary.total} filas · <span className="text-success">{report.summary.new} nuevos</span> ·{" "}
-                {report.summary.duplicates} ya existen · <span className="text-destructive">{report.summary.errors} con errores</span>
+                <b>{fileName}</b>: {t.summary.rows(report.summary.total)} · <span className="text-success">{t.summary.new(report.summary.new)}</span> ·{" "}
+                {t.summary.duplicates(report.summary.duplicates)} · <span className="text-destructive">{t.summary.errors(report.summary.errors)}</span>
               </p>
               {(includeNotes || report.summary.notesSkipped > 0) && (
                 <p className="text-sm text-muted-foreground">
-                  {includeNotes ? `${plural(report.summary.notes, "nota se importa", "notas se importan")}. ` : ""}
-                  {report.summary.notesSkipped > 0 && `${plural(report.summary.notesSkipped, "nota se descarta", "notas se descartan")} porque parecen graduaciones, diagnósticos o seguros.`}
+                  {includeNotes ? `${t.notesImported(report.summary.notes)} ` : ""}
+                  {report.summary.notesSkipped > 0 && t.notesSkipped(report.summary.notesSkipped)}
                 </p>
               )}
               {report.unknownColumns.length > 0 && (
-                <p className="text-sm text-muted-foreground">Columnas que no se importan: {report.unknownColumns.join(", ")}</p>
+                <p className="text-sm text-muted-foreground">{t.unknownColumns(report.unknownColumns.join(", "))}</p>
               )}
               <div className="max-h-80 overflow-y-auto rounded-lg border">
                 <table className="w-full text-sm">
                   <tbody className="divide-y">
                     {report.rows.filter((r) => r.status !== "new").map((r) => (
                       <tr key={r.row}>
-                        <td className="w-16 p-2 text-muted-foreground">Fila {r.row}</td>
+                        <td className="w-16 p-2 text-muted-foreground">{t.row(r.row)}</td>
                         <td className="p-2">{r.name || "—"}</td>
-                        <td className="p-2">{r.status === "error" ? <span className="text-destructive">{r.errors.join("; ")}</span> : `Ya existe (${r.duplicateOf})`}</td>
+                        <td className="p-2">{r.status === "error" ? <span className="text-destructive">{r.errors.join("; ")}</span> : t.exists(r.duplicateOf)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -155,7 +155,7 @@ export function DataTab() {
               </div>
               {report.dryRun && report.summary.new > 0 && (
                 <Button size="lg" className="justify-self-start" disabled={check.isPending} onClick={() => check.mutate(false)}>
-                  Importar {report.summary.new} clientes nuevos
+                  {t.importNew(report.summary.new)}
                 </Button>
               )}
             </div>
@@ -163,10 +163,10 @@ export function DataTab() {
         </CardContent>
       </Card>
       <Card>
-        <CardHeader><CardTitle>Exportar</CardTitle><CardDescription>Toda la lista de clientes en un archivo que abre Excel.</CardDescription></CardHeader>
+        <CardHeader><CardTitle>{t.exportTitle}</CardTitle><CardDescription>{t.exportDescription}</CardDescription></CardHeader>
         <CardContent>
           <Button size="lg" variant="outline" onClick={() => download("/clients/export.csv", "clientes.csv").catch((e) => toast.error(e.message))}>
-            <DownloadIcon /> Descargar clientes
+            <DownloadIcon /> {t.download}
           </Button>
         </CardContent>
       </Card>

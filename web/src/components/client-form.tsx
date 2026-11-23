@@ -11,8 +11,10 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
+import { useFormat, useT } from "@/i18n"
+import type { Messages } from "@/i18n/dict"
 import { api, ApiError } from "@/lib/api"
-import { CONTACT_LABEL, formatPhone } from "@/lib/format"
+import { formatPhone } from "@/lib/format"
 import { useSession } from "@/lib/session"
 import type { Client, ContactPref, User } from "@/lib/types"
 
@@ -81,13 +83,14 @@ export function EditClientDialog({ open, onOpenChange, client, onSaved }: Client
 
 /** Estado del formulario: datos, errores por campo y validación al enviar. */
 function useClientDraft(initial: FormState) {
+  const messages = useT().clients.form.errors
   const [f, setF] = useState(initial)
   const [errors, setErrors] = useState<FieldErrors>({})
   const form = useRef<HTMLFormElement>(null)
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setF((s) => ({ ...s, [k]: v }))
   /** Marca los errores junto a su campo y enfoca el primero. Devuelve si se puede enviar. */
   const check = () => {
-    const found = validate(f)
+    const found = validate(f, messages)
     setErrors(found)
     const first = Object.keys(found)[0]
     if (first) form.current?.querySelector<HTMLElement>(`[name="${first}"]`)?.focus()
@@ -131,60 +134,63 @@ const duplicatesOf = (e: Error) =>
 
 function ClientFields({ f, set, errors, smsHint, emailHint }: Pick<Draft, "f" | "set" | "errors"> & { smsHint?: string; emailHint?: string }) {
   const { can } = useSession()
+  const all = useT()
+  const t = all.clients.form
   const users = useQuery({ queryKey: ["users"], queryFn: () => api<User[]>("/users") })
   const sellers = users.data?.filter((u) => u.active && (u.role === "seller" || u.role === "owner")) ?? []
   return (
     <>
-      <FormField label="Nombre *" error={errors.firstName}><Input name="firstName" autoComplete="off" aria-required value={f.firstName} onChange={(e) => set("firstName", e.target.value)} /></FormField>
-      <FormField label="Apellidos *" error={errors.lastName}><Input name="lastName" autoComplete="off" aria-required value={f.lastName} onChange={(e) => set("lastName", e.target.value)} /></FormField>
-      <FormField label="Teléfono" error={errors.phone}><Input name="phone" type="tel" autoComplete="off" placeholder="(305) 555-0100…" value={f.phone} onChange={(e) => set("phone", e.target.value)} /></FormField>
-      <FormField label="Correo" error={errors.email}><Input name="email" type="email" autoComplete="off" spellCheck={false} value={f.email} onChange={(e) => set("email", e.target.value)} /></FormField>
-      <FormField label="Cumpleaños"><Input name="birthDate" type="date" value={f.birthDate} onChange={(e) => set("birthDate", e.target.value)} /></FormField>
-      <FormField label="Vendedora">
+      <FormField label={t.firstName} error={errors.firstName}><Input name="firstName" autoComplete="off" aria-required value={f.firstName} onChange={(e) => set("firstName", e.target.value)} /></FormField>
+      <FormField label={t.lastName} error={errors.lastName}><Input name="lastName" autoComplete="off" aria-required value={f.lastName} onChange={(e) => set("lastName", e.target.value)} /></FormField>
+      <FormField label={t.phone} error={errors.phone}><Input name="phone" type="tel" autoComplete="off" placeholder="(305) 555-0100…" value={f.phone} onChange={(e) => set("phone", e.target.value)} /></FormField>
+      <FormField label={t.email} error={errors.email}><Input name="email" type="email" autoComplete="off" spellCheck={false} value={f.email} onChange={(e) => set("email", e.target.value)} /></FormField>
+      <FormField label={t.birthday}><Input name="birthDate" type="date" value={f.birthDate} onChange={(e) => set("birthDate", e.target.value)} /></FormField>
+      <FormField label={t.seller}>
         <NativeSelect name="sellerId" value={f.sellerId} onChange={(e) => set("sellerId", e.target.value)}>
-          <option value="">Sin asignar</option>
+          <option value="">{t.unassigned}</option>
           {sellers.map((u) => <option key={u.id} value={u.id}>{u.fullName}</option>)}
         </NativeSelect>
       </FormField>
-      <FormField label="Dirección" className="sm:col-span-2"><Input name="address" autoComplete="off" value={f.address} onChange={(e) => set("address", e.target.value)} /></FormField>
-      <FormField label="Prefiere que le avisemos por">
+      <FormField label={t.address} className="sm:col-span-2"><Input name="address" autoComplete="off" value={f.address} onChange={(e) => set("address", e.target.value)} /></FormField>
+      <FormField label={t.contactPref}>
         <NativeSelect name="contactPref" value={f.contactPref} onChange={(e) => set("contactPref", e.target.value as ContactPref)}>
-          {(Object.keys(CONTACT_LABEL) as ContactPref[]).map((k) => <option key={k} value={k}>{CONTACT_LABEL[k]}</option>)}
+          {(Object.keys(all.common.contact) as ContactPref[]).map((k) => <option key={k} value={k}>{all.common.contact[k]}</option>)}
         </NativeSelect>
       </FormField>
-      <FormField label="Etiquetas (separadas por coma)"><Input name="tags" autoComplete="off" placeholder="VIP, Lentes de contacto…" value={f.tags} onChange={(e) => set("tags", e.target.value)} /></FormField>
-      <FormField label="¿Cómo nos conoció?"><Input name="source" autoComplete="off" value={f.source} onChange={(e) => set("source", e.target.value)} /></FormField>
+      <FormField label={t.tags}><Input name="tags" autoComplete="off" placeholder={t.tagsPlaceholder} value={f.tags} onChange={(e) => set("tags", e.target.value)} /></FormField>
+      <FormField label={t.source}><Input name="source" autoComplete="off" value={f.source} onChange={(e) => set("source", e.target.value)} /></FormField>
       {can("exam.write") && (
-        <FormField label="Examen anterior (si ya venía)"><Input name="priorExamAt" type="date" value={f.priorExamAt} onChange={(e) => set("priorExamAt", e.target.value)} /></FormField>
+        <FormField label={t.priorExam}><Input name="priorExamAt" type="date" value={f.priorExamAt} onChange={(e) => set("priorExamAt", e.target.value)} /></FormField>
       )}
 
       <div className="grid gap-3 rounded-lg border p-3 sm:col-span-2">
-        <p className="text-sm font-medium">Consentimiento (pregúntale al cliente)</p>
-        <Consent checked={f.smsConsent} onChange={(v) => set("smsConsent", v)} label="Acepta recibir SMS de la óptica" hint={smsHint} />
-        <Consent checked={f.emailConsent} onChange={(v) => set("emailConsent", v)} label="Acepta recibir correos con novedades" hint={emailHint} />
+        <p className="text-sm font-medium">{t.consent.title}</p>
+        <Consent checked={f.smsConsent} onChange={(v) => set("smsConsent", v)} label={t.consent.sms} hint={smsHint} />
+        <Consent checked={f.emailConsent} onChange={(v) => set("emailConsent", v)} label={t.consent.email} hint={emailHint} />
       </div>
     </>
   )
 }
 
 function DuplicatesNotice({ dups, onOpenFile }: { dups: Client[]; onOpenFile: () => void }) {
+  const t = useT().clients.form.duplicates
   if (!dups.length) return null
   return (
     <div className="rounded-lg border border-warning bg-warning/10 p-3 sm:col-span-2" aria-live="polite">
       <p className="flex items-center gap-2 text-sm font-medium">
-        <AlertTriangleIcon aria-hidden className="size-4" /> Puede que este cliente ya exista
+        <AlertTriangleIcon aria-hidden className="size-4" /> {t.title}
       </p>
       <ul className="mt-2 grid gap-1 text-sm">
         {dups.map((d) => (
           <li key={d.id} className="flex flex-wrap items-center justify-between gap-2">
             <span className="min-w-0 break-words">
               <b>{d.fullName}</b>{d.restricted ? "" : ` · ${formatPhone(d.phone)} ${d.email ?? ""}`}
-              <span className="text-muted-foreground"> — coincide {d.matches?.map((m) => ({ phone: "teléfono", email: "correo", name: "nombre" })[m]).join(" y ")}</span>
+              <span className="text-muted-foreground">{t.matches(d.matches?.map((m) => t.field[m]) ?? [])}</span>
             </span>
             {d.restricted ? (
-              <span className="text-muted-foreground">Ficha de {d.seller?.fullName ?? "otra vendedora"}</span>
+              <span className="text-muted-foreground">{t.fileOf(d.seller?.fullName)}</span>
             ) : (
-              <Link className="text-primary underline" href={`/clientes/${d.id}`} onClick={onOpenFile}>Abrir su ficha</Link>
+              <Link className="text-primary underline" href={`/clientes/${d.id}`} onClick={onOpenFile}>{t.open}</Link>
             )}
           </li>
         ))}
@@ -202,13 +208,15 @@ interface ClientFormProps {
 
 function NewClientForm({ onClose, onSaved }: ClientFormProps) {
   const { can } = useSession()
+  const all = useT()
+  const t = all.clients.form
   const { f, set, errors, form, check } = useClientDraft(empty)
   const [dups, setDups] = useState<Client[]>([])
   const refresh = useClientSaved()
 
   // Aviso en vivo de posibles duplicados mientras se escribe.
   useEffect(() => {
-    const t = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       const q = new URLSearchParams()
       if (f.phone.replace(/\D/g, "").length >= 10) q.set("phone", f.phone)
       if (f.email.includes("@")) q.set("email", f.email)
@@ -218,7 +226,7 @@ function NewClientForm({ onClose, onSaved }: ClientFormProps) {
       }
       setDups([...q.keys()].length ? await api<Client[]>(`/clients/duplicates?${q}`).catch(() => []) : [])
     }, 350)
-    return () => clearTimeout(t)
+    return () => clearTimeout(timer)
   }, [f.phone, f.email, f.firstName, f.lastName])
 
   const save = useMutation({
@@ -229,7 +237,7 @@ function NewClientForm({ onClose, onSaved }: ClientFormProps) {
     },
     onSuccess: (c) => {
       refresh(c)
-      toast.success("Cliente registrado")
+      toast.success(t.registered)
       onClose()
       onSaved?.(c)
     },
@@ -242,18 +250,18 @@ function NewClientForm({ onClose, onSaved }: ClientFormProps) {
 
   return (
     <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-2xl">
-      <DialogHeader><DialogTitle>Nuevo cliente</DialogTitle></DialogHeader>
+      <DialogHeader><DialogTitle>{t.newTitle}</DialogTitle></DialogHeader>
       <form ref={form} noValidate className="grid gap-4 sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); submit(false) }}>
-        <ClientFields f={f} set={set} errors={errors} smsHint="Se guarda la fecha en que lo acepta" />
+        <ClientFields f={f} set={set} errors={errors} smsHint={t.consent.dateSaved} />
         <DuplicatesNotice dups={dups} onOpenFile={onClose} />
         <DialogFooter className="sm:col-span-2">
-          <Button type="button" variant="outline" size="lg" onClick={onClose}>Cancelar</Button>
+          <Button type="button" variant="outline" size="lg" onClick={onClose}>{all.common.cancel}</Button>
           {dups.length > 0 ? (
             <Button type="button" size="lg" variant="secondary" disabled={save.isPending} onClick={() => submit(true)}>
-              Es otra persona, registrar
+              {t.duplicates.registerAnyway}
             </Button>
           ) : (
-            <Button type="submit" size="lg" disabled={save.isPending}>{save.isPending ? "Registrando…" : "Registrar"}</Button>
+            <Button type="submit" size="lg" disabled={save.isPending}>{save.isPending ? t.registering : t.register}</Button>
           )}
         </DialogFooter>
       </form>
@@ -263,10 +271,12 @@ function NewClientForm({ onClose, onSaved }: ClientFormProps) {
 
 // ───────────── Edición ─────────────
 
-const consentDate = (iso: string | null) => (iso ? `Dado el ${new Date(iso).toLocaleDateString("es-US")}` : undefined)
-
 function EditClientForm({ client, onClose, onSaved }: ClientFormProps & { client: Client }) {
   const { can } = useSession()
+  const all = useT()
+  const t = all.clients.form
+  const fmt = useFormat()
+  const consentDate = (iso: string | null) => (iso ? t.consent.givenOn(fmt.dateTime(iso, "day")) : undefined)
   const { f, set, errors, form, check } = useClientDraft(fromClient(client))
   const [dups, setDups] = useState<Client[]>([])
   const refresh = useClientSaved()
@@ -276,7 +286,7 @@ function EditClientForm({ client, onClose, onSaved }: ClientFormProps & { client
     mutationFn: () => api<Client>(`/clients/${client.id}`, "PATCH", { ...clientBody(f, can("exam.write")), force: false }),
     onSuccess: (c) => {
       refresh(c)
-      toast.success("Ficha actualizada")
+      toast.success(t.updated)
       onClose()
       onSaved?.(c)
     },
@@ -288,13 +298,13 @@ function EditClientForm({ client, onClose, onSaved }: ClientFormProps & { client
 
   return (
     <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-2xl">
-      <DialogHeader><DialogTitle>Editar ficha</DialogTitle></DialogHeader>
+      <DialogHeader><DialogTitle>{t.editTitle}</DialogTitle></DialogHeader>
       <form ref={form} noValidate className="grid gap-4 sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); if (check()) save.mutate() }}>
-        <ClientFields f={f} set={set} errors={errors} smsHint={consentDate(client.smsConsentAt) ?? "Se guarda la fecha en que lo acepta"} emailHint={consentDate(client.emailConsentAt)} />
+        <ClientFields f={f} set={set} errors={errors} smsHint={consentDate(client.smsConsentAt) ?? t.consent.dateSaved} emailHint={consentDate(client.emailConsentAt)} />
         <DuplicatesNotice dups={dups} onOpenFile={onClose} />
         <DialogFooter className="sm:col-span-2">
-          <Button type="button" variant="outline" size="lg" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" size="lg" disabled={save.isPending}>{save.isPending ? "Guardando…" : "Guardar"}</Button>
+          <Button type="button" variant="outline" size="lg" onClick={onClose}>{all.common.cancel}</Button>
+          <Button type="submit" size="lg" disabled={save.isPending}>{save.isPending ? all.common.saving : all.common.save}</Button>
         </DialogFooter>
       </form>
     </DialogContent>
@@ -303,13 +313,13 @@ function EditClientForm({ client, onClose, onSaved }: ClientFormProps & { client
 
 type FieldErrors = Partial<Record<"firstName" | "lastName" | "phone" | "email", string>>
 
-function validate(f: FormState): FieldErrors {
+function validate(f: FormState, messages: Messages["clients"]["form"]["errors"]): FieldErrors {
   const errors: FieldErrors = {}
-  if (!f.firstName.trim()) errors.firstName = "Escribe el nombre."
-  if (!f.lastName.trim()) errors.lastName = "Escribe los apellidos."
+  if (!f.firstName.trim()) errors.firstName = messages.firstName
+  if (!f.lastName.trim()) errors.lastName = messages.lastName
   const digits = f.phone.replace(/\D/g, "").length
-  if (f.phone.trim() && (digits < 10 || digits > 15)) errors.phone = "Revisa el teléfono: deben ser 10 dígitos, con el código de área."
-  if (f.email.trim() && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email.trim())) errors.email = "Revisa el correo: le falta algo, como la @ o el dominio."
+  if (f.phone.trim() && (digits < 10 || digits > 15)) errors.phone = messages.phone
+  if (f.email.trim() && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email.trim())) errors.email = messages.email
   return errors
 }
 

@@ -2,14 +2,13 @@
 
 import { useQuery } from "@tanstack/react-query"
 import { addDays, format, isToday, startOfWeek } from "date-fns"
-import { es } from "date-fns/locale"
 import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from "lucide-react"
 import { useState } from "react"
 import { AppointmentDialog } from "@/components/appointment-dialog"
 import { QueryStatus } from "@/components/query-status"
 import { Button } from "@/components/ui/button"
+import { useFormat, useT } from "@/i18n"
 import { api } from "@/lib/api"
-import { APPT_LABEL, formatTime } from "@/lib/format"
 import { useSession } from "@/lib/session"
 import type { Appointment } from "@/lib/types"
 import { cn } from "@/lib/utils"
@@ -17,6 +16,8 @@ import { cn } from "@/lib/utils"
 const ymd = (d: Date) => format(d, "yyyy-MM-dd")
 
 export default function AgendaPage() {
+  const t = useT()
+  const fmt = useFormat()
   const { can } = useSession()
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }))
   const [open, setOpen] = useState(false)
@@ -38,20 +39,20 @@ export default function AgendaPage() {
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <h1 className="mr-2 text-2xl font-semibold">Agenda</h1>
-          <Button variant="outline" size="icon-lg" aria-label="Semana anterior" onClick={() => setWeekStart(addDays(weekStart, -7))}><ChevronLeftIcon /></Button>
-          <Button variant="outline" size="lg" onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}>Hoy</Button>
-          <Button variant="outline" size="icon-lg" aria-label="Semana siguiente" onClick={() => setWeekStart(addDays(weekStart, 7))}><ChevronRightIcon /></Button>
+          <h1 className="mr-2 text-2xl font-semibold">{t.agenda.title}</h1>
+          <Button variant="outline" size="icon-lg" aria-label={t.agenda.previousWeek} onClick={() => setWeekStart(addDays(weekStart, -7))}><ChevronLeftIcon /></Button>
+          <Button variant="outline" size="lg" onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}>{t.agenda.today}</Button>
+          <Button variant="outline" size="icon-lg" aria-label={t.agenda.nextWeek} onClick={() => setWeekStart(addDays(weekStart, 7))}><ChevronRightIcon /></Button>
           <span className="text-muted-foreground">
-            {format(days[0], "d MMM", { locale: es })} – {format(days[6], "d MMM yyyy", { locale: es })}
+            {t.agenda.range(fmt.day(from, "dayMonth"), fmt.day(to))}
           </span>
         </div>
         {can("appointments.write") && (
-          <Button size="lg" onClick={() => { setSelected(undefined); setDay(undefined); setOpen(true) }}><PlusIcon /> Nueva cita</Button>
+          <Button size="lg" onClick={() => { setSelected(undefined); setDay(undefined); setOpen(true) }}><PlusIcon /> {t.agenda.newAppointment}</Button>
         )}
       </div>
 
-      <QueryStatus query={appts} label="las citas" />
+      <QueryStatus query={appts} label={t.agenda.queryLabel} />
 
       <div className="grid gap-3 md:grid-cols-7">
         {days.map((d) => {
@@ -63,7 +64,7 @@ export default function AgendaPage() {
                 disabled={!can("appointments.write")}
                 onClick={() => { setSelected(undefined); setDay(ymd(d)); setOpen(true) }}
               >
-                <span className="text-sm font-semibold capitalize">{format(d, "EEE d", { locale: es })}</span>
+                <span className="text-sm font-semibold capitalize">{fmt.day(ymd(d), "weekday")}</span>
                 <span className="text-xs text-muted-foreground">{items.length || ""}</span>
               </button>
               {items.map((a) => (
@@ -75,9 +76,9 @@ export default function AgendaPage() {
                     a.status === "confirmed" ? "border-l-primary" : a.status === "arrived" ? "border-l-success" : a.status === "no_show" ? "border-l-destructive" : "border-l-muted-foreground/40",
                   )}
                 >
-                  <span className="block font-medium tabular-nums">{formatTime(a.startsAt)}</span>
+                  <span className="block font-medium tabular-nums">{fmt.time(a.startsAt)}</span>
                   <span className="block truncate">{a.client.fullName}</span>
-                  <span className="block text-xs text-muted-foreground">{APPT_LABEL[a.status]}{a.doctor ? ` · ${a.doctor.initials}` : ""}</span>
+                  <span className="block text-xs text-muted-foreground">{t.common.appointment[a.status]}{a.doctor ? ` · ${a.doctor.initials}` : ""}</span>
                 </button>
               ))}
             </section>
@@ -85,7 +86,7 @@ export default function AgendaPage() {
         })}
       </div>
       <p className="text-xs text-muted-foreground">
-        Al agendar se envía la confirmación al cliente y, 24 horas antes, un recordatorio. Pulsa un día para agendar en esa fecha.
+        {t.agenda.hint}
       </p>
 
       <AppointmentDialog open={open} onOpenChange={setOpen} appointment={selected} defaultDate={day} />

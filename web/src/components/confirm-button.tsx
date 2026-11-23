@@ -13,6 +13,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { useT } from "@/i18n"
 
 /** Botón de una acción que no se puede deshacer con un toque: antes pregunta. */
 export function ConfirmButton({ title, description, confirmLabel, onConfirm, children, ...button }: {
@@ -22,6 +23,7 @@ export function ConfirmButton({ title, description, confirmLabel, onConfirm, chi
   onConfirm: () => void
 } & Omit<React.ComponentProps<typeof Button>, "onClick" | "title">) {
   const [open, setOpen] = useState(false)
+  const t = useT().common
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger render={<Button {...button} />}>{children}</AlertDialogTrigger>
@@ -31,7 +33,7 @@ export function ConfirmButton({ title, description, confirmLabel, onConfirm, chi
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Volver</AlertDialogCancel>
+          <AlertDialogCancel>{t.back}</AlertDialogCancel>
           <AlertDialogAction variant="destructive" onClick={() => { setOpen(false); onConfirm() }}>
             {confirmLabel}
           </AlertDialogAction>

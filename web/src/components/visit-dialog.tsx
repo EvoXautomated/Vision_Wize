@@ -11,8 +11,9 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { useT } from "@/i18n"
 import { api } from "@/lib/api"
-import { localYmd, VISIT_FLOW, VISIT_LABEL, VISIT_TARGETS } from "@/lib/format"
+import { localYmd, VISIT_FLOW, VISIT_TARGETS } from "@/lib/format"
 import { useSession } from "@/lib/session"
 import type { User, Visit, VisitStatus } from "@/lib/types"
 import { cn } from "@/lib/utils"
@@ -27,12 +28,13 @@ export function nextStep(v: Visit, role: User["role"]): VisitStatus | null {
 
 export function useVisitStatus() {
   const qc = useQueryClient()
+  const t = useT()
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: VisitStatus }) => api<Visit>(`/visits/${id}/status`, "POST", { status }),
     onSuccess: (v) => {
       qc.invalidateQueries({ queryKey: ["today"] })
       qc.invalidateQueries({ queryKey: ["client", v.client.id] })
-      toast.success(`${v.client.fullName}: ${VISIT_LABEL[v.status]}`)
+      toast.success(t.visits.statusChanged(v.client.fullName, t.common.visit[v.status]))
     },
     onError: (e) => toast.error(e.message),
   })
@@ -49,6 +51,7 @@ export function VisitDialog({ visit, onOpenChange }: { visit: Visit | null; onOp
 
 function VisitForm({ visit, onOpenChange }: { visit: Visit; onOpenChange: (o: boolean) => void }) {
   const qc = useQueryClient()
+  const t = useT()
   const { user, can } = useSession()
   const users = useQuery({ queryKey: ["users"], queryFn: () => api<User[]>("/users") })
   const [examDate, setExamDate] = useState(visit.examDate ?? "")
@@ -67,7 +70,7 @@ function VisitForm({ visit, onOpenChange }: { visit: Visit; onOpenChange: (o: bo
     onSuccess: (v) => {
       qc.invalidateQueries({ queryKey: ["today"] })
       qc.invalidateQueries({ queryKey: ["client", v.client.id] })
-      toast.success("Visita guardada")
+      toast.success(t.visits.saved)
       onOpenChange(false)
     },
     onError: (e) => toast.error(e.message),
@@ -102,7 +105,7 @@ function VisitForm({ visit, onOpenChange }: { visit: Visit; onOpenChange: (o: bo
                   s === "cancelled" && !current && enabled && "text-destructive",
                 )}
               >
-                {VISIT_LABEL[s]}
+                {t.common.visit[s]}
               </button>
             )
           })}
@@ -110,30 +113,30 @@ function VisitForm({ visit, onOpenChange }: { visit: Visit; onOpenChange: (o: bo
 
         <div className="grid gap-4">
           <div className="grid gap-1.5">
-            <Label htmlFor="visit-exam-date" className="text-muted-foreground">Fecha del examen</Label>
+            <Label htmlFor="visit-exam-date" className="text-muted-foreground">{t.visits.examDate}</Label>
             {can("exam.write") ? (
               <div className="flex gap-2">
                 <Input id="visit-exam-date" type="date" max={localYmd()} value={examDate} onChange={(e) => setExamDate(e.target.value)} />
-                <Button variant="outline" onClick={() => setExamDate(localYmd())}>Hoy</Button>
+                <Button variant="outline" onClick={() => setExamDate(localYmd())}>{t.visits.today}</Button>
               </div>
             ) : (
-              <p className="text-sm">{visit.examDate ?? "Sin examen todavía"}</p>
+              <p className="text-sm">{visit.examDate ?? t.visits.noExamYet}</p>
             )}
-            <p className="mt-1 text-xs text-muted-foreground">Solo la fecha. El sistema no guarda graduaciones ni diagnósticos.</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t.visits.examHint}</p>
           </div>
           {can("sales.read") && (
-            <FormField label="Montura elegida o comprada"><Input placeholder="Marca, modelo y color" value={frame} onChange={(e) => setFrame(e.target.value)} /></FormField>
+            <FormField label={t.visits.frame}><Input placeholder={t.visits.framePlaceholder} value={frame} onChange={(e) => setFrame(e.target.value)} /></FormField>
           )}
-          <FormField label="Vendedora"><NativeSelect value={sellerId} onChange={(e) => setSellerId(e.target.value)}>
-              <option value="">Sin asignar</option>
+          <FormField label={t.visits.seller}><NativeSelect value={sellerId} onChange={(e) => setSellerId(e.target.value)}>
+              <option value="">{t.visits.unassigned}</option>
               {sellers.map((u) => <option key={u.id} value={u.id}>{u.fullName}</option>)}
             </NativeSelect></FormField>
-          <FormField label="Notas de la visita"><Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></FormField>
+          <FormField label={t.visits.notes}><Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></FormField>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" size="lg" onClick={() => onOpenChange(false)}>Cerrar</Button>
-          <Button size="lg" disabled={save.isPending} onClick={() => save.mutate()}>Guardar</Button>
+          <Button variant="outline" size="lg" onClick={() => onOpenChange(false)}>{t.common.close}</Button>
+          <Button size="lg" disabled={save.isPending} onClick={() => save.mutate()}>{t.common.save}</Button>
         </DialogFooter>
       </DialogContent>
   )

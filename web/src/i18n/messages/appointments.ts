@@ -1,0 +1,53 @@
+/** Diálogo para agendar una cita o cambiar una que ya existe. */
+export const es = {
+  day: "Día",
+  time: "Hora",
+  duration: "Duración",
+  minutes: (n: number) => `${n} min`,
+  doctor: "Médico",
+  anyDoctor: "Cualquiera",
+  notes: "Notas",
+  client: "Cliente",
+  newTitle: "Agendar cita",
+  change: "Cambiar",
+  chooseClient: "Elegir cliente",
+  schedule: "Agendar",
+  scheduling: "Agendando…",
+  scheduled: "Cita agendada. Se envió la confirmación.",
+  pickerTitle: "¿Para quién es la cita?",
+  title: "Cita",
+  updated: "Cita actualizada",
+  status: (label: string) => `Estado: ${label}`,
+  cancelTitle: "¿Cancelar esta cita?",
+  /** `when` es la fecha y hora de la cita, ya con formato. */
+  cancelBody: (name: string, when: string) =>
+    `La cita de ${name} del ${when} deja de aparecer en la agenda. Al cliente no se le avisa: llámalo si hace falta.`,
+  cancel: "Cancelar cita",
+  markConfirmed: "Marcar confirmada",
+}
+
+export const en: typeof es = {
+  day: "Date",
+  time: "Time",
+  duration: "Duration",
+  minutes: (n) => `${n} min`,
+  doctor: "Doctor",
+  anyDoctor: "Any",
+  notes: "Notes",
+  client: "Client",
+  newTitle: "Schedule appointment",
+  change: "Change",
+  chooseClient: "Choose client",
+  schedule: "Schedule",
+  scheduling: "Scheduling…",
+  scheduled: "Appointment scheduled. The confirmation was sent.",
+  pickerTitle: "Who is the appointment for?",
+  title: "Appointment",
+  updated: "Appointment updated",
+  status: (label) => `Status: ${label}`,
+  cancelTitle: "Cancel this appointment?",
+  cancelBody: (name, when) =>
+    `${name}’s appointment on ${when} will no longer appear on the schedule. The client isn’t notified: call them if needed.`,
+  cancel: "Cancel appointment",
+  markConfirmed: "Mark as confirmed",
+}

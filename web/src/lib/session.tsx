@@ -2,6 +2,7 @@
 
 import { toast } from "sonner"
 import { createContext, use, useCallback, useEffect, useState } from "react"
+import { currentMessages } from "@/i18n"
 import { api, ApiError, deviceStore, tokenStore } from "./api"
 import type { User } from "./types"
 
@@ -56,7 +57,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     tokenStore.set(r.token)
     setUser(r.user)
     setGrants(r.grants)
-    if (r.weakPin) toast.warning("Tu PIN es muy fácil de adivinar. Pídele al dueño que lo cambie en Ajustes → Equipo.", { duration: 10_000 })
+    if (r.weakPin) toast.warning(currentMessages().common.weakPin, { duration: 10_000 })
   }, [])
 
   const logout = useCallback(async () => {

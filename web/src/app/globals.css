@@ -63,6 +63,8 @@
   }
   html {
     @apply font-sans;
+    /* Controles nativos (select, fecha, barras) en el tono del tema. */
+    color-scheme: light;
     scroll-behavior: smooth;
     /* iPad: sin la espera del doble toque y sin el destello gris al tocar. */
     touch-action: manipulation;
@@ -73,6 +75,9 @@
   [data-slot="alert-dialog-content"],
   [data-slot="sheet-content"] {
     overscroll-behavior: contain;
+  }
+  html.dark {
+    color-scheme: dark;
   }
   body {
     @apply bg-background text-foreground antialiased;
@@ -100,6 +105,9 @@
       radial-gradient(at 20% 20%, color-mix(in oklch, var(--primary) 18%, transparent) 0, transparent 50%),
       radial-gradient(at 80% 0%, color-mix(in oklch, var(--sidebar-primary) 14%, transparent) 0, transparent 45%),
       radial-gradient(at 60% 90%, color-mix(in oklch, var(--info) 10%, transparent) 0, transparent 50%);
+  }
+  .scrollbar-none {
+    scrollbar-width: none;
   }
   .scrollbar-thin {
     scrollbar-width: thin;

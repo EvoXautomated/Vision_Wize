@@ -1,3 +1,5 @@
+import { currentMessages } from "@/i18n"
+
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/v1"
 
 const TOKEN_KEY = "optica.token"
@@ -53,7 +55,7 @@ export async function api<T = unknown>(path: string, method: Method = "GET", bod
   }
   if (!res.ok) {
     const data = await res.json().catch(() => ({}))
-    throw new ApiError(res.status, data.message ?? "Algo salió mal. Inténtalo de nuevo.", data)
+    throw new ApiError(res.status, data.message ?? currentMessages().common.genericError, data)
   }
   if (res.status === 204) return undefined as T
   const type = res.headers.get("content-type") ?? ""
@@ -63,7 +65,7 @@ export async function api<T = unknown>(path: string, method: Method = "GET", bod
 /** Descarga un archivo autenticado (exportación CSV). */
 export async function download(path: string, fallbackName: string) {
   const res = await fetch(`${API_URL}${path}`, { headers: { Authorization: `Bearer ${tokenStore.get()}`, ...deviceHeader() } })
-  if (!res.ok) throw new ApiError(res.status, (await res.json().catch(() => ({}))).message ?? "No se pudo descargar")
+  if (!res.ok) throw new ApiError(res.status, (await res.json().catch(() => ({}))).message ?? currentMessages().common.downloadError)
   const name = res.headers.get("content-disposition")?.match(/filename="?([^"]+)"?/)?.[1] ?? fallbackName
   const url = URL.createObjectURL(await res.blob())
   const a = Object.assign(document.createElement("a"), { href: url, download: name })

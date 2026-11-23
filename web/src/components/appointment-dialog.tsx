@@ -12,8 +12,8 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { useFormat, useT } from "@/i18n"
 import { api } from "@/lib/api"
-import { APPT_LABEL, formatDateTime } from "@/lib/format"
 import type { Appointment, Settings, User } from "@/lib/types"
 
 /** Agendar una cita nueva o mover/cancelar una existente. */
@@ -80,34 +80,36 @@ function AppointmentFields({ draft, duration, change, disabled }: {
   change: (patch: Partial<Draft>) => void
   disabled?: boolean
 }) {
+  const t = useT().appointments
   const users = useQuery({ queryKey: ["users"], queryFn: () => api<User[]>("/users") })
   const doctors = users.data?.filter((u) => u.active && (u.role === "doctor" || u.role === "owner")) ?? []
   return (
     <>
       <div className="grid grid-cols-2 gap-3">
-        <FormField label="Día"><Input name="date" type="date" disabled={disabled} value={draft.date} onChange={(e) => change({ date: e.target.value })} /></FormField>
-        <FormField label="Hora"><Input name="time" type="time" step={900} disabled={disabled} value={draft.time} onChange={(e) => change({ time: e.target.value })} /></FormField>
-        <FormField label="Duración">
+        <FormField label={t.day}><Input name="date" type="date" disabled={disabled} value={draft.date} onChange={(e) => change({ date: e.target.value })} /></FormField>
+        <FormField label={t.time}><Input name="time" type="time" step={900} disabled={disabled} value={draft.time} onChange={(e) => change({ time: e.target.value })} /></FormField>
+        <FormField label={t.duration}>
           <NativeSelect name="duration" disabled={disabled} value={duration} onChange={(e) => change({ duration: Number(e.target.value) })}>
-            {[...new Set([15, 20, 30, 45, 60, 90, duration])].sort((a, b) => a - b).map((m) => <option key={m} value={m}>{m} min</option>)}
+            {[...new Set([15, 20, 30, 45, 60, 90, duration])].sort((a, b) => a - b).map((m) => <option key={m} value={m}>{t.minutes(m)}</option>)}
           </NativeSelect>
         </FormField>
-        <FormField label="Médico">
+        <FormField label={t.doctor}>
           <NativeSelect name="doctorId" disabled={disabled} value={draft.doctorId} onChange={(e) => change({ doctorId: e.target.value })}>
-            <option value="">Cualquiera</option>
+            <option value="">{t.anyDoctor}</option>
             {doctors.map((u) => <option key={u.id} value={u.id}>{u.fullName}</option>)}
           </NativeSelect>
         </FormField>
       </div>
-      <FormField label="Notas"><Textarea name="notes" autoComplete="off" rows={2} disabled={disabled} value={draft.notes} onChange={(e) => change({ notes: e.target.value })} /></FormField>
+      <FormField label={t.notes}><Textarea name="notes" autoComplete="off" rows={2} disabled={disabled} value={draft.notes} onChange={(e) => change({ notes: e.target.value })} /></FormField>
     </>
   )
 }
 
-function ClientLine({ label = "Cliente", children }: { label?: string; children: React.ReactNode }) {
+function ClientLine({ label, children }: { label?: string; children: React.ReactNode }) {
+  const t = useT().appointments
   return (
     <div className="grid gap-1.5">
-      <span className="text-sm font-medium text-muted-foreground">{label}</span>
+      <span className="text-sm font-medium text-muted-foreground">{label ?? t.client}</span>
       {children}
     </div>
   )
@@ -116,6 +118,7 @@ function ClientLine({ label = "Cliente", children }: { label?: string; children:
 // ───────────── Cita nueva ─────────────
 
 function NewAppointment({ client, defaultDate, onClose }: { client?: Who; defaultDate?: string; onClose: () => void }) {
+  const t = useT().appointments
   const [who, setWho] = useState(client)
   const [picking, setPicking] = useState(false)
   const { draft, duration, change } = useAppointmentDraft({
@@ -130,7 +133,7 @@ function NewAppointment({ client, defaultDate, onClose }: { client?: Who; defaul
     mutationFn: () => api("/appointments", "POST", { ...appointmentBody(draft, duration), clientId: who!.id }),
     onSuccess: () => {
       invalidate()
-      toast.success("Cita agendada. Se envió la confirmación.")
+      toast.success(t.scheduled)
       onClose()
     },
     onError: (e) => toast.error(e.message),
@@ -139,27 +142,27 @@ function NewAppointment({ client, defaultDate, onClose }: { client?: Who; defaul
   return (
     <>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader><DialogTitle>Agendar cita</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{t.newTitle}</DialogTitle></DialogHeader>
         <div className="grid gap-4">
           <ClientLine>
             {who ? (
               <div className="flex items-center justify-between gap-2 rounded-lg border p-2.5">
                 <span className="min-w-0 truncate font-medium">{who.fullName}</span>
-                {!client && <Button variant="ghost" size="sm" onClick={() => setPicking(true)}>Cambiar</Button>}
+                {!client && <Button variant="ghost" size="sm" onClick={() => setPicking(true)}>{t.change}</Button>}
               </div>
             ) : (
-              <Button variant="outline" size="lg" className="w-full" onClick={() => setPicking(true)}>Elegir cliente</Button>
+              <Button variant="outline" size="lg" className="w-full" onClick={() => setPicking(true)}>{t.chooseClient}</Button>
             )}
           </ClientLine>
           <AppointmentFields draft={draft} duration={duration} change={change} />
         </div>
         <DialogFooter>
           <Button size="lg" disabled={!who || !draft.date || save.isPending} onClick={() => save.mutate()}>
-            {save.isPending ? "Agendando…" : "Agendar"}
+            {save.isPending ? t.scheduling : t.schedule}
           </Button>
         </DialogFooter>
       </DialogContent>
-      <ClientPicker open={picking} onOpenChange={setPicking} title="¿Para quién es la cita?" onPick={(c) => setWho(c)} />
+      <ClientPicker open={picking} onOpenChange={setPicking} title={t.pickerTitle} onPick={(c) => setWho(c)} />
     </>
   )
 }
@@ -167,6 +170,9 @@ function NewAppointment({ client, defaultDate, onClose }: { client?: Who; defaul
 // ───────────── Cita existente ─────────────
 
 function ExistingAppointment({ appointment, onClose }: { appointment: Appointment; onClose: () => void }) {
+  const all = useT()
+  const t = all.appointments
+  const fmt = useFormat()
   const start = new Date(appointment.startsAt)
   const { draft, duration, change } = useAppointmentDraft({
     date: format(start, "yyyy-MM-dd"),
@@ -183,7 +189,7 @@ function ExistingAppointment({ appointment, onClose }: { appointment: Appointmen
     mutationFn: () => api(`/appointments/${appointment.id}`, "PATCH", appointmentBody(draft, duration)),
     onSuccess: () => {
       invalidate()
-      toast.success("Cita actualizada")
+      toast.success(t.updated)
       onClose()
     },
     onError: (e) => toast.error(e.message),
@@ -199,13 +205,13 @@ function ExistingAppointment({ appointment, onClose }: { appointment: Appointmen
 
   return (
     <DialogContent className="sm:max-w-md">
-      <DialogHeader><DialogTitle>Cita</DialogTitle></DialogHeader>
+      <DialogHeader><DialogTitle>{t.title}</DialogTitle></DialogHeader>
       <div className="grid gap-4">
         <ClientLine>
           <div className="rounded-lg border p-2.5"><span className="block truncate font-medium">{appointment.client.fullName}</span></div>
         </ClientLine>
         <AppointmentFields draft={draft} duration={duration} change={change} disabled={!open} />
-        <p className="text-sm text-muted-foreground">Estado: {APPT_LABEL[appointment.status]}</p>
+        <p className="text-sm text-muted-foreground">{t.status(all.common.appointment[appointment.status])}</p>
       </div>
       {open && (
         <DialogFooter className="flex-wrap">
@@ -213,18 +219,18 @@ function ExistingAppointment({ appointment, onClose }: { appointment: Appointmen
             variant="destructive"
             size="lg"
             disabled={setStatus.isPending}
-            title="¿Cancelar esta cita?"
-            description={<>La cita de {appointment.client.fullName} del {formatDateTime(appointment.startsAt)} deja de aparecer en la agenda. Al cliente no se le avisa: llámalo si hace falta.</>}
-            confirmLabel="Cancelar cita"
+            title={t.cancelTitle}
+            description={t.cancelBody(appointment.client.fullName, fmt.dateTime(appointment.startsAt))}
+            confirmLabel={t.cancel}
             onConfirm={() => setStatus.mutate("cancelled")}
           >
-            Cancelar cita
+            {t.cancel}
           </ConfirmButton>
           {appointment.status === "scheduled" && (
-            <Button variant="outline" size="lg" disabled={setStatus.isPending} onClick={() => setStatus.mutate("confirmed")}>Marcar confirmada</Button>
+            <Button variant="outline" size="lg" disabled={setStatus.isPending} onClick={() => setStatus.mutate("confirmed")}>{t.markConfirmed}</Button>
           )}
           <Button size="lg" disabled={!draft.date || save.isPending} onClick={() => save.mutate()}>
-            {save.isPending ? "Guardando…" : "Guardar"}
+            {save.isPending ? all.common.saving : all.common.save}
           </Button>
         </DialogFooter>
       )}

@@ -11,8 +11,9 @@ import { nextStep, useVisitStatus, VisitDialog } from "@/components/visit-dialog
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useFormat, useT } from "@/i18n"
 import { api } from "@/lib/api"
-import { ago, APPT_LABEL, formatDay, formatPhone, formatTime, VISIT_LABEL } from "@/lib/format"
+import { formatPhone } from "@/lib/format"
 import { useSession } from "@/lib/session"
 import type { Appointment, Client, Settings, Visit, VisitStatus } from "@/lib/types"
 
@@ -27,6 +28,8 @@ const COLUMNS: VisitStatus[] = ["reception", "exam", "sale", "ready"]
 
 export default function TodayPage() {
   const qc = useQueryClient()
+  const t = useT()
+  const fmt = useFormat()
   const { user, can } = useSession()
   const today = useQuery({ queryKey: ["today"], queryFn: () => api<Today>("/today"), refetchInterval: 20_000 })
   const settings = useQuery({ queryKey: ["settings"], queryFn: () => api<Settings>("/settings"), enabled: can("settings.manage") })
@@ -39,7 +42,7 @@ export default function TodayPage() {
     mutationFn: (body: { clientId: string; appointmentId?: string }) => api<Visit>("/visits", "POST", body),
     onSuccess: (v) => {
       qc.invalidateQueries({ queryKey: ["today"] })
-      toast.success(`${v.client.fullName} está en recepción`)
+      toast.success(t.today.inReception(v.client.fullName))
     },
     onError: (e) => toast.error(e.message),
   })
@@ -58,24 +61,24 @@ export default function TodayPage() {
     <div className="grid gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Hoy</h1>
-          <p className="text-muted-foreground first-letter:uppercase">{data && formatDay(data.date, "EEEE d 'de' MMMM")}</p>
+          <h1 className="text-2xl font-semibold">{t.today.title}</h1>
+          <p className="text-muted-foreground first-letter:uppercase">{data && fmt.day(data.date, "dayLong")}</p>
         </div>
         <div className="flex gap-2">
           {!!data?.pendingCalls && (
             <Button variant="outline" size="lg" render={<Link href="/llamar" />}>
-              <PhoneIcon /> {data.pendingCalls} por llamar
+              <PhoneIcon /> {t.today.pendingCalls(data.pendingCalls)}
             </Button>
           )}
-          <Button size="lg" onClick={() => setPicking(true)}><PlusIcon /> Llegó un cliente</Button>
+          <Button size="lg" onClick={() => setPicking(true)}><PlusIcon /> {t.today.clientArrived}</Button>
         </div>
       </div>
 
-      <QueryStatus query={today} label="las visitas y citas de hoy" />
+      <QueryStatus query={today} label={t.today.queryLabel} />
 
       {missingBusiness && (
         <Link href="/ajustes" className="rounded-xl border border-warning bg-warning/10 p-4 text-sm">
-          <b>Completa los datos de la óptica</b> (nombre y teléfono) en Ajustes → La óptica. Se usan en los mensajes a los clientes.
+          <b>{t.today.missingBusiness.strong}</b> {t.today.missingBusiness.rest}
         </Link>
       )}
 
@@ -85,7 +88,7 @@ export default function TodayPage() {
           return (
             <section key={col} className="flex min-h-40 flex-col gap-2 rounded-xl bg-muted/60 p-3">
               <h2 className="flex items-center justify-between px-1 text-sm font-semibold">
-                {VISIT_LABEL[col]} <span className="text-muted-foreground">{items.length}</span>
+                {t.common.visit[col]} <span className="text-muted-foreground">{items.length}</span>
               </h2>
               {items.map((v) => {
                 const next = nextStep(v, user.role)
@@ -99,7 +102,7 @@ export default function TodayPage() {
                       >
                         <span className="block truncate font-medium">{v.client.fullName}</span>
                         <span className="block text-xs text-muted-foreground">
-                          {ago(v.statusAt)}{v.seller ? ` · ${v.seller.fullName}` : ""}
+                          {fmt.ago(v.statusAt)}{v.seller ? ` · ${v.seller.fullName}` : ""}
                         </span>
                       </button>
                       {next && (
@@ -109,7 +112,7 @@ export default function TodayPage() {
                           disabled={status.isPending}
                           onClick={() => status.mutate({ id: v.id, status: next })}
                         >
-                          {VISIT_LABEL[next]} <ArrowRightIcon />
+                          {t.common.visit[next]} <ArrowRightIcon />
                         </Button>
                       )}
                     </CardContent>
@@ -123,23 +126,23 @@ export default function TodayPage() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
-          <CardHeader><CardTitle className="flex items-center gap-2"><CalendarCheckIcon className="size-4" /> Citas de hoy</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="flex items-center gap-2"><CalendarCheckIcon className="size-4" /> {t.today.appointmentsToday}</CardTitle></CardHeader>
           <CardContent>
-            {data && !data.appointments.length && <p className="text-sm text-muted-foreground">No hay citas para hoy.</p>}
+            {data && !data.appointments.length && <p className="text-sm text-muted-foreground">{t.today.noAppointments}</p>}
             <ul className="divide-y">
               {data?.appointments.map((a) => (
                 <li key={a.id} className="flex flex-wrap items-center gap-3 py-3">
-                  <span className="w-20 font-medium tabular-nums">{formatTime(a.startsAt)}</span>
+                  <span className="w-20 font-medium tabular-nums">{fmt.time(a.startsAt)}</span>
                   <Link href={`/clientes/${a.client.id}`} className="flex-1 hover:underline">
                     {a.client.fullName}
                     <span className="block text-xs text-muted-foreground">{formatPhone(a.client.phone)}{a.notes ? ` · ${a.notes}` : ""}</span>
                   </Link>
-                  <Badge variant={a.status === "confirmed" ? "default" : "outline"}>{APPT_LABEL[a.status]}</Badge>
+                  <Badge variant={a.status === "confirmed" ? "default" : "outline"}>{t.common.appointment[a.status]}</Badge>
                   {(a.status === "scheduled" || a.status === "confirmed") && (
                     <div className="flex gap-2">
-                      <Button size="lg" onClick={() => startVisit.mutate({ clientId: a.client.id, appointmentId: a.id })}>Llegó</Button>
+                      <Button size="lg" onClick={() => startVisit.mutate({ clientId: a.client.id, appointmentId: a.id })}>{t.today.arrived}</Button>
                       {can("appointments.write") && (
-                        <Button size="lg" variant="ghost" onClick={() => apptStatus.mutate({ id: a.id, status: "no_show" })}>No vino</Button>
+                        <Button size="lg" variant="ghost" onClick={() => apptStatus.mutate({ id: a.id, status: "no_show" })}>{t.today.noShow}</Button>
                       )}
                     </div>
                   )}
@@ -149,9 +152,9 @@ export default function TodayPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>Entregados hoy</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{t.today.deliveredToday}</CardTitle></CardHeader>
           <CardContent>
-            {data && !delivered.length && <p className="text-sm text-muted-foreground">Todavía ninguno.</p>}
+            {data && !delivered.length && <p className="text-sm text-muted-foreground">{t.today.noneYet}</p>}
             <ul className="grid gap-2">
               {delivered.map((v) => (
                 <li key={v.id}><Link href={`/clientes/${v.client.id}`} className="hover:underline">{v.client.fullName}</Link></li>
@@ -164,7 +167,7 @@ export default function TodayPage() {
       <ClientPicker
         open={picking}
         onOpenChange={setPicking}
-        title="¿Quién llegó?"
+        title={t.today.pickerTitle}
         onPick={(c: Client) => startVisit.mutate({ clientId: c.id })}
       />
       <VisitDialog visit={open} onOpenChange={(o) => !o && setOpen(null)} />

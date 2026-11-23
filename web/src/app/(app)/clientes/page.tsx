@@ -7,11 +7,13 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
 import { NewClientDialog } from "@/components/client-form"
+import { Avatar, nameInitials } from "@/components/avatar"
 import { ExamBadge, TagBadge } from "@/components/badges"
 import { NativeSelect } from "@/components/native-select"
 import { QueryStatus } from "@/components/query-status"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { useT } from "@/i18n"
 import { api, download } from "@/lib/api"
 import { formatPhone } from "@/lib/format"
 import { useSession } from "@/lib/session"
@@ -22,6 +24,7 @@ const PAGE = 50
 export default function ClientsPage() {
   const router = useRouter()
   const { can } = useSession()
+  const t = useT().clients.list
   // La búsqueda, los filtros y la página viven en la URL: al volver de una
   // ficha se conservan, y se pueden guardar o compartir.
   const pathname = usePathname()
@@ -47,8 +50,8 @@ export default function ClientsPage() {
   useEffect(() => {
     const value = q.trim()
     if (value === urlQ) return
-    const t = setTimeout(() => setParams({ q: value, pagina: "" }), 250)
-    return () => clearTimeout(t)
+    const timer = setTimeout(() => setParams({ q: value, pagina: "" }), 250)
+    return () => clearTimeout(timer)
   }, [q, urlQ, setParams])
   // Cambiar un filtro vuelve a la primera página.
   const filter = (key: string) => (e: React.ChangeEvent<HTMLSelectElement>) => setParams({ [key]: e.target.value, pagina: "" })
@@ -74,58 +77,63 @@ export default function ClientsPage() {
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Clientes</h1>
+        <h1 className="text-2xl font-semibold">{t.title}</h1>
         <div className="flex gap-2">
           {can("clients.export") && (
-            <Button variant="outline" size="lg" onClick={() => download("/clients/export.csv", "clientes.csv").catch((e) => toast.error(e.message))}>
-              <DownloadIcon /> Exportar a Excel
+            <Button variant="outline" size="lg" onClick={() => download("/clients/export.csv", t.exportFile).catch((e) => toast.error(e.message))}>
+              <DownloadIcon /> {t.export}
             </Button>
           )}
-          {can("clients.write") && <Button size="lg" onClick={() => setCreating(true)}><PlusIcon /> Nuevo cliente</Button>}
+          {can("clients.write") && <Button size="lg" onClick={() => setCreating(true)}><PlusIcon /> {t.newClient}</Button>}
         </div>
       </div>
 
       <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto_auto]">
         <div className="relative">
           <SearchIcon aria-hidden className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input type="search" name="q" autoComplete="off" aria-label="Buscar clientes" className="pl-9" placeholder="Buscar por nombre, teléfono, correo o etiqueta…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Input type="search" name="q" autoComplete="off" aria-label={t.searchLabel} className="pl-9" placeholder={t.searchPlaceholder} value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
-        <NativeSelect value={tag} aria-label="Etiqueta" onChange={filter("etiqueta")}>
-          <option value="">Todas las etiquetas</option>
-          {tags.data?.map((t) => <option key={t.id} value={t.name}>{t.name} ({t.clients})</option>)}
+        <NativeSelect value={tag} aria-label={t.tagFilter} onChange={filter("etiqueta")}>
+          <option value="">{t.allTags}</option>
+          {tags.data?.map((tg) => <option key={tg.id} value={tg.name}>{tg.name} ({tg.clients})</option>)}
         </NativeSelect>
-        <NativeSelect value={exam} aria-label="Revisión" onChange={filter("revision")}>
-          <option value="">Cualquier revisión</option>
-          <option value="overdue">Revisión vencida</option>
-          <option value="due_soon">Vence este mes</option>
+        <NativeSelect value={exam} aria-label={t.examFilter} onChange={filter("revision")}>
+          <option value="">{t.anyExam}</option>
+          <option value="overdue">{t.examOverdue}</option>
+          <option value="due_soon">{t.examDueSoon}</option>
         </NativeSelect>
         {can("clients.readAll") && sellers.length > 0 && (
-          <NativeSelect value={sellerId} aria-label="Vendedora" onChange={filter("vendedora")}>
-            <option value="">Todas las vendedoras</option>
+          <NativeSelect value={sellerId} aria-label={t.sellerFilter} onChange={filter("vendedora")}>
+            <option value="">{t.allSellers}</option>
             {sellers.map((u) => <option key={u.id} value={u.id}>{u.fullName}</option>)}
-            <option value="none">Sin vendedora</option>
+            <option value="none">{t.noSeller}</option>
           </NativeSelect>
         )}
       </div>
 
-      <QueryStatus query={list} label="los clientes" />
+      <QueryStatus query={list} label={t.loadLabel} />
 
-      <div className="overflow-hidden rounded-xl border bg-card">
+      <div className="overflow-hidden rounded-2xl bg-card shadow-[0_1px_2px_oklch(0.2_0.02_205/0.05)] ring-1 ring-foreground/8 dark:shadow-none dark:ring-foreground/10">
         <table className="w-full text-sm">
-          <thead className="bg-muted/60 text-left text-muted-foreground">
+          <thead className="border-b bg-muted/40 text-left text-xs tracking-wide text-muted-foreground uppercase">
             <tr>
-              <th className="p-3 font-medium">Cliente</th>
-              <th className="hidden p-3 font-medium md:table-cell">Contacto</th>
-              <th className="hidden p-3 font-medium lg:table-cell">Vendedora</th>
-              <th className="p-3 font-medium">Revisión</th>
+              <th className="p-3 font-medium">{t.colClient}</th>
+              <th className="hidden p-3 font-medium md:table-cell">{t.colContact}</th>
+              <th className="hidden p-3 font-medium lg:table-cell">{t.colSeller}</th>
+              <th className="p-3 font-medium">{t.colExam}</th>
             </tr>
           </thead>
           <tbody className="divide-y">
             {list.data?.items.map((c) => (
-              <tr key={c.id} className="cursor-pointer hover:bg-muted/40" onClick={() => router.push(`/clientes/${c.id}`)}>
+              <tr key={c.id} className="cursor-pointer transition-colors hover:bg-muted/40" onClick={() => router.push(`/clientes/${c.id}`)}>
                 <td className="p-3">
-                  <Link href={`/clientes/${c.id}`} className="font-medium">{c.fullName}</Link>
-                  <div className="mt-1 flex flex-wrap gap-1">{c.tags.map((t) => <TagBadge key={t.id} tag={t} />)}</div>
+                  <div className="flex items-center gap-3">
+                    <Avatar soft initials={nameInitials(c.fullName)} className="size-9" />
+                    <div className="min-w-0">
+                      <Link href={`/clientes/${c.id}`} className="font-medium">{c.fullName}</Link>
+                      {c.tags.length > 0 && <div className="mt-1 flex flex-wrap gap-1">{c.tags.map((tg) => <TagBadge key={tg.id} tag={tg} />)}</div>}
+                    </div>
+                  </div>
                 </td>
                 <td className="hidden p-3 text-muted-foreground md:table-cell">
                   <div>{formatPhone(c.phone)}</div>
@@ -138,16 +146,16 @@ export default function ClientsPage() {
           </tbody>
         </table>
         {list.data && !list.data.items.length && (
-          <p className="p-8 text-center text-muted-foreground">{debounced ? `No hay nadie con «${debounced}».` : "Todavía no hay clientes."}</p>
+          <p className="p-8 text-center text-muted-foreground">{debounced ? t.noMatch(debounced) : t.empty}</p>
         )}
       </div>
 
       {total > PAGE && (
         <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span className="tabular-nums">{page * PAGE + 1}–{Math.min(total, (page + 1) * PAGE)} de {total}</span>
+          <span className="tabular-nums">{t.range(page * PAGE + 1, Math.min(total, (page + 1) * PAGE), total)}</span>
           <div className="flex gap-2">
-            <Button variant="outline" disabled={page === 0} onClick={() => goTo(page - 1)}>Anterior</Button>
-            <Button variant="outline" disabled={(page + 1) * PAGE >= total} onClick={() => goTo(page + 1)}>Siguiente</Button>
+            <Button variant="outline" disabled={page === 0} onClick={() => goTo(page - 1)}>{t.previous}</Button>
+            <Button variant="outline" disabled={(page + 1) * PAGE >= total} onClick={() => goTo(page + 1)}>{t.next}</Button>
           </div>
         </div>
       )}
