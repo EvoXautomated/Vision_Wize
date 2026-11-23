@@ -11,6 +11,11 @@ const prod = {
 describe('validateEnv', () => {
   it('no exige nada fuera de producción', () => expect(validateEnv({})).toEqual({}));
   it('acepta un entorno de producción completo', () => expect(validateEnv(prod)).toBe(prod));
+  it('acepta CORS_ORIGIN «none» y toma la dirección pública de Render', () => {
+    const env = { ...prod, CORS_ORIGIN: 'none', PUBLIC_API_URL: undefined, RENDER_EXTERNAL_URL: 'https://api.onrender.com' };
+    expect(validateEnv(env).PUBLIC_API_URL).toBe('https://api.onrender.com');
+    delete process.env.PUBLIC_API_URL;
+  });
   it.each([
     ['APP_SECRET corto', { APP_SECRET: 'corto' }],
     ['APP_SECRET de desarrollo', { APP_SECRET: 'dev-secret-change-me' }],

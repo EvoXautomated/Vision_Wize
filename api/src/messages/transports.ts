@@ -86,3 +86,32 @@ export function validTwilioSignature(url: string, params: Record<string, string>
   const b = Buffer.from(signature);
   return a.length === b.length && timingSafeEqual(a, b);
 }
+
+const SVIX_TOLERANCE_S = 300;
+
+/**
+ * Firma de los webhooks de Resend (Svix): HMAC-SHA256 en base64 de
+ * `id.timestamp.cuerpo` con el secreto `whsec_…` (base64). La cabecera puede
+ * traer varias firmas `v1,<firma>` separadas por espacios, y el aviso caduca
+ * a los 5 minutos para que no se pueda reenviar uno antiguo.
+ */
+export function validSvixSignature(
+  rawBody: Buffer | undefined,
+  id: string | undefined,
+  timestamp: string | undefined,
+  signature: string | undefined,
+  now = Date.now(),
+) {
+  const secret = process.env.RESEND_WEBHOOK_SECRET;
+  if (!secret || !rawBody || !id || !timestamp || !signature) return false;
+  const sentAt = Number(timestamp);
+  if (!Number.isFinite(sentAt) || Math.abs(now / 1000 - sentAt) > SVIX_TOLERANCE_S) return false;
+  const key = Buffer.from(secret.replace(/^whsec_/, ''), 'base64');
+  const expected = createHmac('sha256', key).update(`${id}.${timestamp}.${rawBody.toString('utf8')}`).digest();
+  return signature.split(' ').some((part) => {
+    const [version, value] = part.split(',');
+    if (version !== 'v1' || !value) return false;
+    const got = Buffer.from(value, 'base64');
+    return got.length === expected.length && timingSafeEqual(got, expected);
+  });
+}

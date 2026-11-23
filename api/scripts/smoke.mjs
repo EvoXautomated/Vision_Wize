@@ -135,6 +135,13 @@ r = await rec('/clients', 'POST', { firstName: 'Tel', lastName: 'Corto', phone: 
 r = await owner(`/clients/${pedro.id}`, 'PATCH', { sellerId: '00000000-0000-0000-0000-000000000000' }); ok(r.s === 400, 'vendedora inexistente → 400');
 r = await owner('/settings', 'PUT', { messages: { sendFromHour: 'nueve' } }); ok(r.s === 400, 'ajuste de mensajes mal formado rechazado');
 r = await owner('/settings', 'PUT', { business: { name: 'Vision Wize', phone: '305 555 0000' } }); ok(r.s === 200 && r.b.business.name === 'Vision Wize', 'ajustes de la óptica guardados');
+r = await fetch(B + '/public/resend/webhook', { method: 'POST', headers: { 'content-type': 'application/json', 'svix-id': 'x', 'svix-timestamp': String(Math.floor(Date.now() / 1000)), 'svix-signature': 'v1,AAAA' }, body: JSON.stringify({ type: 'email.delivered', data: { email_id: 'x' } }) }); ok(r.status === 403, 'webhook de Resend sin firma válida rechazado');
+if (process.env.RESEND_WEBHOOK_SECRET) {
+  const raw = JSON.stringify({ type: 'email.delivered', data: { email_id: 'no-existe' } });
+  const ts = String(Math.floor(Date.now() / 1000));
+  const sigv = createHmac('sha256', Buffer.from(process.env.RESEND_WEBHOOK_SECRET.replace(/^whsec_/, ''), 'base64')).update(`msg_1.${ts}.${raw}`).digest('base64');
+  r = await fetch(B + '/public/resend/webhook', { method: 'POST', headers: { 'content-type': 'application/json', 'svix-id': 'msg_1', 'svix-timestamp': ts, 'svix-signature': `v1,${sigv}` }, body: raw }); ok(r.status === 204, 'webhook de Resend con firma válida aceptado');
+}
 
 console.log(failed ? `\n${failed} comprobaciones fallaron` : '\nTodo OK');
 process.exit(failed ? 1 : 0);

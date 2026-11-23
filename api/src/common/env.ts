@@ -7,6 +7,11 @@ const DEV_SECRETS = ['dev-secret', 'dev-secret-change-me'];
  * puede llamar a la API.
  */
 export function validateEnv(env: Record<string, unknown>) {
+  // En Render la dirección pública la da el propio servicio.
+  if (!env.PUBLIC_API_URL && typeof env.RENDER_EXTERNAL_URL === 'string') {
+    env.PUBLIC_API_URL = env.RENDER_EXTERNAL_URL;
+    process.env.PUBLIC_API_URL = env.RENDER_EXTERNAL_URL;
+  }
   if (env.NODE_ENV !== 'production') return env;
   const str = (key: string) => (typeof env[key] === 'string' ? (env[key] as string).trim() : '');
   const problems: string[] = [];
@@ -19,7 +24,7 @@ export function validateEnv(env: Record<string, unknown>) {
   }
   const origins = str('CORS_ORIGIN').split(',').map((o) => o.trim()).filter(Boolean);
   if (!origins.length || origins.includes('*')) {
-    problems.push('CORS_ORIGIN debe indicar la dirección de la web (no «*»)');
+    problems.push('CORS_ORIGIN debe indicar la dirección de la web, o «none» si la web usa su puente /api (no «*»)');
   }
   if (problems.length) throw new Error(`Entorno de producción incompleto: ${problems.join('; ')}`);
   return env;

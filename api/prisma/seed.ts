@@ -16,7 +16,9 @@ async function main() {
     await prisma.user.create({
       data: { fullName: 'Dueño', initials: 'D', role: Role.owner, pinHash: await pin(process.env.SEED_OWNER_PIN ?? '0000') },
     });
-    console.log(`Dueño creado con PIN ${process.env.SEED_OWNER_PIN ?? '0000'} (cámbialo al entrar)`);
+    // En producción el PIN no se escribe en los registros.
+    const shown = process.env.NODE_ENV === 'production' ? 'el PIN de SEED_OWNER_PIN' : `PIN ${process.env.SEED_OWNER_PIN ?? '0000'}`;
+    console.log(`Dueño creado con ${shown} (cámbialo al entrar)`);
   }
   if (process.env.SEED_DEMO !== 'true') return;
   if (await prisma.user.count({ where: { role: { not: Role.owner } } })) return;

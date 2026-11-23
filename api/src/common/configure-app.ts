@@ -16,7 +16,8 @@ export function configureApp(app: NestExpressApplication) {
     .split(',')
     .map((o) => o.trim());
   app.enableCors({
-    origin: origins.includes('*') ? '*' : origins,
+    // «none»: ningún otro origen (la web llama a través de su propio puente /api).
+    origin: origins.includes('*') ? '*' : origins.includes('none') ? false : origins,
     exposedHeaders: ['Content-Disposition'],
   });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));

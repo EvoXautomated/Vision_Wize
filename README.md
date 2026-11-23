@@ -42,6 +42,10 @@ En Twilio, con `PUBLIC_API_URL` en `https://…`, configura en el número (o en 
 
 Los dos webhooks comprueban la firma `X-Twilio-Signature` con `TWILIO_AUTH_TOKEN`.
 
+En Resend, un webhook a `POST {PUBLIC_API_URL}/v1/public/resend/webhook` (eventos `email.delivered`, `email.bounced` y `email.complained`) con su secreto en `RESEND_WEBHOOK_SECRET` marca los correos como entregados o fallidos y da de baja a quien los marca como spam.
+
+La puesta en producción paso a paso está en [DESPLIEGUE.md](DESPLIEGUE.md).
+
 Los SMS de marketing terminan con «Resp. STOP para darse de baja.», que no lleva tildes a propósito: una sola tilde hace que el SMS pase de 160 a 70 caracteres por tramo.
 
 **Prueba de extremo a extremo**: crea una base desechable (`<base>_e2e`), aplica migraciones y semilla, arranca la API compilada y pasa la prueba de humo. Necesita el Postgres de `docker-compose` en marcha.

@@ -26,6 +26,7 @@ const env = {
   DEVICE_TRUST: 'true',
   DISABLE_CRON: 'true',
   RESEND_API_KEY: '',
+  RESEND_WEBHOOK_SECRET: `whsec_${Buffer.from('e2e-webhook-secret').toString('base64')}`,
   TWILIO_ACCOUNT_SID: '',
 };
 const run = (cmd, args) => execFileSync(cmd, args, { env, stdio: 'inherit' });

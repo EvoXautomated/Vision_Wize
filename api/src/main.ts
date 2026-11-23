@@ -6,7 +6,8 @@ import { configureApp } from './common/configure-app.js';
 
 async function bootstrap() {
   const app = configureApp(
-    await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false }),
+    await NestFactory.create<NestExpressApplication>(AppModule, // rawBody: el webhook de Resend firma el cuerpo tal como llega.
+      { bodyParser: false, rawBody: true }),
   );
   const swagger = process.env.SWAGGER_ENABLED ?? String(process.env.NODE_ENV !== 'production');
   if (swagger === 'true') {
