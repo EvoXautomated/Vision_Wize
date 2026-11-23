@@ -2,8 +2,8 @@
 
 import { format, formatDistanceToNowStrict, parseISO } from "date-fns"
 import { enUS, es as esLocale } from "date-fns/locale"
-import { createContext, use, useCallback, useEffect, useMemo, useState } from "react"
-import { DEFAULT_LOCALE, type Locale, LOCALE_COOKIE, MESSAGES, type Messages } from "./dict"
+import { createContext, use, useCallback, useMemo, useState } from "react"
+import { DEFAULT_LOCALE, isLocale, type Locale, LOCALE_COOKIE, MESSAGES, type Messages } from "./dict"
 
 export { LOCALE_NAME, LOCALES, type Locale, type Messages } from "./dict"
 
@@ -38,16 +38,17 @@ interface I18nValue {
 
 const I18nContext = createContext<I18nValue | null>(null)
 
-// Textos para el código que vive fuera de React (errores de `api`).
-let current: Messages = MESSAGES[DEFAULT_LOCALE]
-export const currentMessages = () => current
+// Para el código que vive fuera de React (`api`): el idioma activo es el de <html lang>,
+// que pone el servidor y actualiza `setLocale`.
+export function currentLocale(): Locale {
+  const lang = typeof document === "undefined" ? null : document.documentElement.lang
+  return isLocale(lang) ? lang : DEFAULT_LOCALE
+}
+export const currentMessages = () => MESSAGES[currentLocale()]
 
 /** El idioma se guarda en una cookie del dispositivo: el servidor ya pinta la página en ese idioma. */
 export function I18nProvider({ initialLocale, children }: { initialLocale: Locale; children: React.ReactNode }) {
   const [locale, setLocaleState] = useState(initialLocale)
-  useEffect(() => {
-    current = MESSAGES[locale]
-  }, [locale])
 
   const setLocale = useCallback((l: Locale) => {
     document.cookie = `${LOCALE_COOKIE}=${l}; path=/; max-age=31536000; samesite=lax`

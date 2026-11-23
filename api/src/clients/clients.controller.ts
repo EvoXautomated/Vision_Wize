@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   Param,
   Patch,
@@ -14,6 +15,7 @@ import type { Response } from 'express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { type AuthUser, Can, CurrentUser } from '../common/decorators.js';
 import { csvRow } from '../common/csv.js';
+import { langOf, localize } from '../common/error-i18n.js';
 import { shopDate } from '../common/tz.js';
 import {
   CreateClientDto,
@@ -79,8 +81,22 @@ export class ClientsController {
   /** Importación desde Excel: primero con dryRun para ver el informe. */
   @Can('clients.import')
   @Post('import')
-  import(@Body() dto: ImportDto, @CurrentUser() me: AuthUser) {
-    return this.importer.run(dto.rows, dto.dryRun ?? false, me, dto.includeNotes ?? false);
+  async import(
+    @Body() dto: ImportDto,
+    @CurrentUser() me: AuthUser,
+    @Headers('accept-language') acceptLanguage: string | undefined,
+  ) {
+    const result = await this.importer.run(dto.rows, dto.dryRun ?? false, me, dto.includeNotes ?? false);
+    // El informe lleva frases por fila («Falta el nombre»): van en el idioma de la app.
+    const lang = langOf(acceptLanguage);
+    return {
+      ...result,
+      rows: result.rows.map((r) => ({
+        ...r,
+        errors: r.errors.map((e) => localize(e, lang)),
+        ...(r.duplicateOf ? { duplicateOf: localize(r.duplicateOf, lang) } : {}),
+      })),
+    };
   }
 
   @Can('clients.read')

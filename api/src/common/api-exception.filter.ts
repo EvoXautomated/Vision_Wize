@@ -6,17 +6,24 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { Prisma } from '../generated/prisma/client.js';
+import { langOf, localize } from './error-i18n.js';
 
-/** Todas las respuestas no-2xx llevan el cuerpo `{ "message": "..." }`. */
+/**
+ * Todas las respuestas no-2xx llevan el cuerpo `{ "message": "..." }`, en el
+ * idioma que pide la app (`Accept-Language`).
+ */
 @Catch()
 export class ApiExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(ApiExceptionFilter.name);
 
   catch(err: unknown, host: ArgumentsHost) {
-    const res = host.switchToHttp().getResponse<Response>();
-    const [status, message] = this.resolve(err);
+    const http = host.switchToHttp();
+    const res = http.getResponse<Response>();
+    const lang = langOf(http.getRequest<Request>().headers['accept-language']);
+    const [status, raw] = this.resolve(err);
+    const message = localize(raw, lang);
     if (status >= 500) this.logger.error(err);
     // Datos extra del error (p. ej. `duplicates`, `mergedIntoId`) para la app.
     const body = err instanceof HttpException ? err.getResponse() : null;

@@ -1,4 +1,4 @@
-import { currentMessages } from "@/i18n"
+import { currentLocale, currentMessages } from "@/i18n"
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/v1"
 
@@ -18,9 +18,10 @@ export const deviceStore = {
   set: (t: string) => localStorage.setItem(DEVICE_KEY, t),
 }
 
+/** Cabeceras de toda llamada: el dispositivo y el idioma en que la API debe redactar sus errores. */
 const deviceHeader = (): Record<string, string> => {
   const device = deviceStore.get()
-  return device ? { "X-Device-Token": device } : {}
+  return { "Accept-Language": currentLocale(), ...(device ? { "X-Device-Token": device } : {}) }
 }
 
 /** Error de la API con el cuerpo completo (p. ej. `duplicates`, `mergedIntoId`). */
