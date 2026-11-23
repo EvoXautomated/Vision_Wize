@@ -12,6 +12,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { toUserJson } from '../users/user.json.js';
 import { LoginDto } from './auth.dto.js';
+import { DevicesService } from './devices.service.js';
 
 // PIN de 4 dígitos: tras MAX_FAILED intentos el usuario queda bloqueado un rato.
 const MAX_FAILED = 5;
@@ -31,13 +32,15 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
+    private readonly devices: DevicesService,
     config: ConfigService,
   ) {
     this.ttlMs = Number(config.get('SESSION_TTL_HOURS', 12)) * 3_600_000;
   }
 
-  /** Equipo activo para la pantalla de PIN del iPad. */
-  async team() {
+  /** Equipo activo para la pantalla de PIN, solo en un dispositivo autorizado. */
+  async team(deviceToken?: string) {
+    await this.devices.gate(deviceToken);
     const users = await this.prisma.user.findMany({
       where: { active: true, deletedAt: null },
       orderBy: { fullName: 'asc' },
@@ -52,7 +55,8 @@ export class AuthService {
    * Cada intento reserva un hueco en `failedPinCount` con un UPDATE
    * condicional antes de bcrypt: el límite vale también con intentos concurrentes.
    */
-  async login({ userId, pin }: LoginDto) {
+  async login({ userId, pin }: LoginDto, deviceToken?: string) {
+    const gate = await this.devices.gate(deviceToken);
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user || !user.active || user.deletedAt || !user.pinHash) {
       throw new UnauthorizedException('Usuario o PIN incorrecto');
@@ -78,6 +82,8 @@ export class AuthService {
       throw new UnauthorizedException('Usuario o PIN incorrecto');
     }
 
+    // Instalación nueva: el primer PIN correcto autoriza este dispositivo.
+    const first = gate.bootstrap ? await this.devices.enrollFirst() : null;
     const token = randomBytes(32).toString('base64url');
     await this.prisma.$transaction(async (tx) => {
       const reset = await tx.user.updateMany({
@@ -89,6 +95,7 @@ export class AuthService {
         data: {
           tokenHash: hashToken(token),
           userId: user.id,
+          deviceId: gate.deviceId ?? first?.device.id ?? null,
           expiresAt: new Date(Date.now() + this.ttlMs),
         },
       });
@@ -97,6 +104,7 @@ export class AuthService {
       token,
       user: toUserJson(user),
       grants: await this.settings.grantsFor(user.role),
+      ...(first ? { deviceToken: first.token } : {}),
     };
   }
 

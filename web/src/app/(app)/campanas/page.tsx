@@ -255,7 +255,7 @@ function CampaignEditor({ campaign, sellers, onClose }: { campaign: Campaign | n
                 <b>{preview.reachable}</b> {preview.reachable === 1 ? "cliente lo recibirá" : "clientes lo recibirán"}
                 {preview.matched > preview.reachable && (
                   <span className="text-muted-foreground">
-                    {" "}de {preview.matched} en el grupo ({preview.noConsent} sin {channel === "sms" ? "teléfono o permiso de SMS" : "correo o permiso de correo"}
+                    {" "}de {preview.matched} en el grupo ({preview.noConsent} sin {channel === "sms" ? "teléfono o permiso de SMS" : "correo o permiso de correo"}, o que no quieren mensajes
                     {preview.unsubscribed ? `, ${preview.unsubscribed} dados de baja` : ""})
                   </span>
                 )}

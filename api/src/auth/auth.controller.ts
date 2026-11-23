@@ -1,24 +1,35 @@
-import { Body, Controller, Get, HttpCode, Post } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { type AuthUser, CurrentUser, Public } from '../common/decorators.js';
-import { LoginDto } from './auth.dto.js';
+import { EnrollDeviceDto, LoginDto } from './auth.dto.js';
 import { AuthService } from './auth.service.js';
+import { DevicesService } from './devices.service.js';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly devices: DevicesService,
+  ) {}
 
   @Public()
   @Get('team')
-  team() {
-    return this.auth.team();
+  team(@Headers('x-device-token') device: string | undefined) {
+    return this.auth.team(device);
   }
 
   @Public()
   @Post('login')
-  login(@Body() dto: LoginDto) {
-    return this.auth.login(dto);
+  login(@Body() dto: LoginDto, @Headers('x-device-token') device: string | undefined) {
+    return this.auth.login(dto, device);
+  }
+
+  /** Autoriza este dispositivo con el código que genera el dueño en Ajustes. */
+  @Public()
+  @Post('devices/enroll')
+  enroll(@Body() dto: EnrollDeviceDto) {
+    return this.devices.enroll(dto.code, dto.name);
   }
 
   @ApiBearerAuth()

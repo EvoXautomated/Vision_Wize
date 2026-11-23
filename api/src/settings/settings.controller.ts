@@ -33,6 +33,9 @@ export class SettingsController {
       if (typeof def === 'number' && (typeof value !== 'number' || value < 0)) {
         throw new BadRequestException(`${key} debe ser un número positivo`);
       }
+      if (key === 'examReminderMonths' && (!Number.isInteger(value) || (value as number) < 1 || (value as number) > 60)) {
+        throw new BadRequestException('Los meses de revisión deben ser un número entero entre 1 y 60');
+      }
       if (key === 'permissions') {
         for (const [p, r] of Object.entries(value as object)) {
           if (!(PERMISSIONS as string[]).includes(p) || !Array.isArray(r) || r.some((x) => !roles.includes(x))) {

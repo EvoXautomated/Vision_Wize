@@ -9,7 +9,7 @@ Sistema por fases para una óptica de una sola tienda: **CRM de clientes (Fase 1
 
 ## Fase 1 · qué incluye
 
-- **Equipo y permisos**: dueño, recepción, médico y vendedora. Cada persona entra con su PIN de 4 dígitos (bloqueo tras 5 intentos). Los permisos se comprueban en la API y el dueño puede ajustarlos desde *Ajustes → Permisos*.
+- **Equipo y permisos**: dueño, recepción, médico y vendedora. Cada persona entra con su PIN de 4 dígitos (bloqueo tras 5 intentos). Los permisos se comprueban en la API y el dueño puede ajustarlos desde *Ajustes → Permisos*. Solo se puede entrar desde un **dispositivo autorizado**: el primero se autoriza solo con el primer PIN correcto y los demás con un código de un solo uso que genera el dueño en Ajustes → Equipo. `DEVICE_TRUST=false` lo desactiva (desarrollo, o para recuperar el acceso si se pierde el único dispositivo).
 - **Ficha de cliente**: datos de contacto, cumpleaños, preferencia de aviso, consentimiento de SMS y correo con fecha, vendedora, etiquetas, notas y un historial con todo lo ocurrido.
 - **Sin duplicados**: búsqueda por nombre (sin acentos), teléfono, correo o etiqueta; aviso al registrar si ya existe, y unión de fichas sin perder historial.
 - **Visitas**: recepción → examen → venta → lentes listos → entregado, con la pantalla *Hoy*. De cada examen se guarda **solo la fecha**: ni graduaciones ni diagnósticos.
@@ -47,5 +47,5 @@ Los SMS de marketing terminan con «Resp. STOP para darse de baja.», que no lle
 **Prueba de humo** (contra una base con la semilla recién cargada):
 
 ```bash
-API_URL=http://localhost:4000/v1 node api/scripts/smoke.mjs
+API_URL=http://localhost:4000/v1 APP_SECRET=<el de la API> node api/scripts/smoke.mjs
 ```

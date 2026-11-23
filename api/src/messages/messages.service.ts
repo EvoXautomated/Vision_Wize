@@ -299,7 +299,13 @@ export class MessagesService {
       const res =
         m.channel === Channel.sms
           ? await sendSms(m.to!, smsBody)
-          : await sendEmail(m.to!, m.subject ?? business.name, m.body, this.emailFooter(m.clientId, business.name));
+          : await sendEmail(
+              m.to!,
+              m.subject ?? business.name,
+              m.body,
+              this.emailFooter(m.clientId, business.name),
+              m.clientId && MARKETING.includes(m.kind) ? this.unsubscribeUrl(m.clientId) : undefined,
+            );
       await this.prisma.message.update({
         where: { id: m.id },
         data: res.ok
@@ -317,24 +323,34 @@ export class MessagesService {
     return queued.length;
   }
 
-  private emailFooter(clientId: string | null, name: string) {
+  private unsubscribeUrl(clientId: string) {
     const base = process.env.PUBLIC_API_URL ?? 'http://localhost:4000';
+    return `${base}/v1/public/unsubscribe/${clientId}/${this.unsubscribeSig(clientId)}`;
+  }
+
+  private emailFooter(clientId: string | null, name: string) {
     if (!clientId) return name;
-    return `${name}\nPara no recibir más correos: ${base}/v1/public/unsubscribe/${clientId}/${this.unsubscribeSig(clientId)}`;
+    return `${name}\nPara no recibir más correos: ${this.unsubscribeUrl(clientId)}`;
   }
 
   unsubscribeSig(clientId: string) {
     return createHmac('sha256', process.env.APP_SECRET ?? 'dev-secret').update(clientId).digest('base64url').slice(0, 22);
   }
 
-  async unsubscribe(clientId: string, sig: string) {
+  /** Comprueba la firma del enlace de baja (404 si no es válida). */
+  checkUnsubscribeLink(clientId: string, sig: string) {
     const expected = Buffer.from(this.unsubscribeSig(clientId));
     const got = Buffer.from(sig);
     if (expected.length !== got.length || !timingSafeEqual(expected, got)) throw new NotFoundException();
-    await this.prisma.client.updateMany({
+  }
+
+  async unsubscribe(clientId: string, sig: string) {
+    this.checkUnsubscribeLink(clientId, sig);
+    const done = await this.prisma.client.updateMany({
       where: { id: clientId, unsubscribedAt: null },
       data: { unsubscribedAt: new Date() },
     });
+    if (!done.count) return; // ya estaba de baja
     await this.prisma.auditLog.create({
       data: { entity: 'client', entityId: clientId, action: 'update', changes: { unsubscribedAt: { from: null, to: 'enlace del correo' } } },
     });

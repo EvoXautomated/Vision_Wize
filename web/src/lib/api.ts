@@ -8,6 +8,19 @@ export const tokenStore = {
   clear: () => localStorage.removeItem(TOKEN_KEY),
 }
 
+const DEVICE_KEY = "optica.device"
+
+/** Token de dispositivo autorizado: sin él la API no deja ver el equipo ni probar un PIN. */
+export const deviceStore = {
+  get: () => (typeof window === "undefined" ? null : localStorage.getItem(DEVICE_KEY)),
+  set: (t: string) => localStorage.setItem(DEVICE_KEY, t),
+}
+
+const deviceHeader = (): Record<string, string> => {
+  const device = deviceStore.get()
+  return device ? { "X-Device-Token": device } : {}
+}
+
 /** Error de la API con el cuerpo completo (p. ej. `duplicates`, `mergedIntoId`). */
 export class ApiError extends Error {
   constructor(
@@ -28,6 +41,7 @@ export async function api<T = unknown>(path: string, method: Method = "GET", bod
     headers: {
       ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...deviceHeader(),
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
@@ -48,7 +62,7 @@ export async function api<T = unknown>(path: string, method: Method = "GET", bod
 
 /** Descarga un archivo autenticado (exportación CSV). */
 export async function download(path: string, fallbackName: string) {
-  const res = await fetch(`${API_URL}${path}`, { headers: { Authorization: `Bearer ${tokenStore.get()}` } })
+  const res = await fetch(`${API_URL}${path}`, { headers: { Authorization: `Bearer ${tokenStore.get()}`, ...deviceHeader() } })
   if (!res.ok) throw new ApiError(res.status, (await res.json().catch(() => ({}))).message ?? "No se pudo descargar")
   const name = res.headers.get("content-disposition")?.match(/filename="?([^"]+)"?/)?.[1] ?? fallbackName
   const url = URL.createObjectURL(await res.blob())

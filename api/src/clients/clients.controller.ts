@@ -80,7 +80,7 @@ export class ClientsController {
   @Can('clients.import')
   @Post('import')
   import(@Body() dto: ImportDto, @CurrentUser() me: AuthUser) {
-    return this.importer.run(dto.rows, dto.dryRun ?? false, me);
+    return this.importer.run(dto.rows, dto.dryRun ?? false, me, dto.includeNotes ?? false);
   }
 
   @Can('clients.read')

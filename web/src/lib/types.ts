@@ -141,3 +141,11 @@ export interface CampaignPreview {
   noConsent: number
   sample: string[]
 }
+
+export interface Device {
+  id: string
+  name: string
+  createdAt: string
+  lastSeenAt: string | null
+  current: boolean
+}

@@ -57,8 +57,32 @@ model Session {
   createdAt DateTime  @default(now())
   expiresAt DateTime
   revokedAt DateTime?
+  deviceId  String? // dispositivo desde el que se abrió (al quitarlo se cierran sus sesiones)
 
   @@index([userId])
+  @@index([deviceId])
+}
+
+/// Dispositivo autorizado (el iPad de la tienda). Solo desde uno autorizado se
+/// puede ver el equipo y probar un PIN. Se guarda solo el hash de su token.
+model Device {
+  id         String    @id @default(uuid())
+  name       String
+  tokenHash  String    @unique
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime?
+  revokedAt  DateTime?
+}
+
+/// Código de un solo uso (10 minutos, 5 intentos) para autorizar un dispositivo nuevo.
+model DevicePairing {
+  id          String    @id @default(uuid())
+  codeHash    String
+  expiresAt   DateTime
+  attempts    Int       @default(0)
+  usedAt      DateTime?
+  createdById String
+  createdAt   DateTime  @default(now())
 }
 
 // ───────────────────────── Clientes ─────────────────────────

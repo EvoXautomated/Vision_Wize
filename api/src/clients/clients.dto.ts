@@ -79,4 +79,9 @@ export class ImportDto {
   @ApiProperty() @IsArray() rows: Record<string, unknown>[];
   /** true: solo valida y devuelve el informe, sin guardar. */
   @ApiPropertyOptional() @IsOptional() @IsBoolean() dryRun?: boolean;
+  /**
+   * Importar también la columna «Notas». Por defecto no: en los Excel antiguos
+   * suele llevar graduaciones o diagnósticos, que no se guardan (cláusula 10.4).
+   */
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() includeNotes?: boolean;
 }

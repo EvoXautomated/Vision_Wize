@@ -1,11 +1,16 @@
 // Prueba de humo de la Fase 1 contra una API con la semilla de prueba recién cargada.
-// Uso: API_URL=http://localhost:4001/v1 node scripts/smoke.mjs
+// Uso: API_URL=http://localhost:4001/v1 node scripts/smoke.mjs (con el mismo APP_SECRET que la API)
+import { createHmac } from 'node:crypto';
 const B = process.env.API_URL ?? 'http://localhost:4001/v1';
 const team = await (await fetch(B + '/auth/team')).json();
 const id = (role, name) => team.find((u) => u.role === role && (!name || u.fullName.includes(name))).id;
+// El primer PIN correcto autoriza este «dispositivo»; los demás logins envían su token.
+let device;
+const dev = () => (device ? { 'x-device-token': device } : {});
 async function login(userId, pin) {
-  const r = await (await fetch(B + '/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ userId, pin }) })).json();
-  return (path, method = 'GET', body) => fetch(B + path, { method, headers: { authorization: 'Bearer ' + r.token, 'content-type': 'application/json' }, body: body && JSON.stringify(body) }).then(async (x) => ({ s: x.status, b: x.headers.get('content-type')?.includes('json') ? await x.json() : await x.text() }));
+  const r = await (await fetch(B + '/auth/login', { method: 'POST', headers: { 'content-type': 'application/json', ...dev() }, body: JSON.stringify({ userId, pin }) })).json();
+  device ??= r.deviceToken;
+  return (path, method = 'GET', body) => fetch(B + path, { method, headers: { authorization: 'Bearer ' + r.token, 'content-type': 'application/json', ...dev() }, body: body && JSON.stringify(body) }).then(async (x) => ({ s: x.status, b: x.headers.get('content-type')?.includes('json') ? await x.json() : await x.text() }));
 }
 const owner = await login(id('owner'), '0000');
 const rec = await login(id('reception'), '1111');
@@ -79,3 +84,45 @@ r = await owner('/campaigns'); ok(r.b[0].recipients > 0 && r.b[0].stats, `result
 r = await owner('/dashboard'); ok(r.s === 200 && r.b.clients.total > 0, `panel: ${r.b.clients.total} clientes, ${r.b.visits.thisMonth} visitas este mes`);
 r = await rec('/dashboard'); ok(r.s === 403, 'recepción no ve el panel');
 r = await fetch(B + '/public/twilio/inbound', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'From=%2B13055550101&Body=STOP' }); ok(r.status === 403, 'webhook de Twilio sin firma rechazado');
+// dispositivos de confianza
+ok(!!device, 'el primer login autoriza el dispositivo');
+r = await fetch(B + '/auth/team'); ok(r.status === 403 && (await r.json()).code === 'device_not_trusted', 'sin dispositivo autorizado no se ve el equipo');
+r = await fetch(B + '/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ userId: id('owner'), pin: '0000' }) }); ok(r.status === 403, 'sin dispositivo autorizado no se prueba el PIN');
+r = await rec('/devices/pairing-code', 'POST'); ok(r.s === 403, 'recepción no autoriza dispositivos');
+r = await owner('/devices/pairing-code', 'POST'); const code = r.b.code; ok(/^\d{8}$/.test(code), 'el dueño genera un código');
+const enroll = (c) => fetch(B + '/auth/devices/enroll', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: c, name: 'iPad 2' }) });
+r = await enroll(code === '00000000' ? '00000001' : '00000000'); ok(r.status === 403, 'código incorrecto rechazado');
+r = await enroll(code); const second = (await r.json()).deviceToken; ok(r.status === 201 && second, 'código correcto autoriza el dispositivo');
+r = await enroll(code); ok(r.status === 403, 'el código no sirve dos veces');
+r = await fetch(B + '/auth/team', { headers: { 'x-device-token': second } }); ok(r.status === 200, 'el dispositivo nuevo ve el equipo');
+r = await owner('/devices'); const d2 = r.b.find((d) => d.name === 'iPad 2'); ok(r.b.length === 2 && r.b.find((d) => d.current)?.name === 'Primer dispositivo', 'lista de dispositivos');
+r = await owner(`/devices/${r.b.find((d) => d.current).id}`, 'DELETE'); ok(r.s === 400, 'no se quita el dispositivo en uso');
+r = await owner(`/devices/${d2.id}`, 'DELETE'); ok(r.s === 204, 'el dueño quita un dispositivo');
+r = await fetch(B + '/auth/team', { headers: { 'x-device-token': second } }); ok(r.status === 403, 'el dispositivo quitado ya no entra');
+// campañas: «no quiere avisos» queda fuera
+r = await rec('/clients?q=VIP'); const maria = r.b.items[0];
+r = await owner(`/clients/${maria.id}`, 'PATCH', { contactPref: 'none' });
+r = await owner('/campaigns/preview', 'POST', { channel: 'sms', segment: { tags: ['VIP'] } }); ok(r.b.reachable === 0 && r.b.matched === 1, 'campaña: quien no quiere avisos queda fuera');
+r = await owner(`/clients/${maria.id}`, 'PATCH', { contactPref: 'sms' });
+// baja por correo: abrir el enlace no da de baja; el botón (POST) sí
+const sig = createHmac('sha256', process.env.APP_SECRET ?? 'dev-secret').update(maria.id).digest('base64url').slice(0, 22);
+const link = `${B}/public/unsubscribe/${maria.id}/${sig}`;
+r = await fetch(link); ok(r.status === 200 && (await r.text()).includes('<form method="post">'), 'el enlace de baja pide confirmación');
+r = await rec(`/clients/${maria.id}`); ok(r.b.unsubscribedAt === null, 'abrir el enlace no da de baja');
+r = await fetch(link.slice(0, -1) + (sig.endsWith('A') ? 'B' : 'A')); ok(r.status === 404, 'enlace de baja con firma falsa rechazado');
+r = await fetch(link, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'List-Unsubscribe=One-Click' }); ok(r.status === 200, 'baja confirmada');
+r = await rec(`/clients/${maria.id}`); ok(!!r.b.unsubscribedAt, 'la baja queda en la ficha');
+// importación: las notas con datos clínicos no entran
+const notas = [
+  { Nombre: 'Nota', Apellidos: 'Clínica', Teléfono: '305 555 0401', Notas: 'OD -2.50 OI -2.25' },
+  { Nombre: 'Nota', Apellidos: 'Normal', Teléfono: '305 555 0402', Notas: 'Prefiere que le llamen por la tarde' },
+];
+r = await owner('/clients/import', 'POST', { dryRun: true, rows: notas }); ok(r.b.summary.notes === 0 && r.b.summary.notesSkipped === 1, 'importación: por defecto no se importan notas');
+r = await owner('/clients/import', 'POST', { rows: notas, includeNotes: true }); ok(r.b.summary.notes === 1 && r.b.summary.notesSkipped === 1, 'importación: la nota con graduación se descarta');
+r = await rec('/clients?q=3055550401'); r = await rec(`/clients/${r.b.items[0].id}/timeline`); ok(!JSON.stringify(r.b).includes('2.50'), 'la graduación no se guardó');
+// meses de revisión: al cambiarlos se mueve la próxima revisión
+r = await owner('/settings', 'PUT', { examReminderMonths: 6 });
+r = await rec(`/clients/${pedro.id}`); ok(r.b.nextExamDue === '2027-05-20', `cambiar los meses recalcula la revisión (${r.b.nextExamDue})`);
+r = await owner('/settings', 'PUT', { examReminderMonths: 0 }); ok(r.s === 400, 'meses de revisión no válidos rechazados');
+r = await owner('/settings', 'PUT', { examReminderMonths: 12 });
+r = await rec(`/clients/${pedro.id}`); ok(r.b.nextExamDue === '2027-11-20', 'y vuelve al restaurarlos');

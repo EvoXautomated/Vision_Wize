@@ -5,6 +5,7 @@ import { format } from "date-fns"
 import { useState } from "react"
 import { toast } from "sonner"
 import { ClientPicker } from "@/components/client-picker"
+import { ConfirmButton } from "@/components/confirm-button"
 import { NativeSelect } from "@/components/native-select"
 import { FormField } from "@/components/form-field"
 import { Button } from "@/components/ui/button"
@@ -12,7 +13,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/lib/api"
-import { APPT_LABEL } from "@/lib/format"
+import { APPT_LABEL, formatDateTime } from "@/lib/format"
 import type { Appointment, Settings, User } from "@/lib/types"
 
 /** Agendar una cita nueva o mover/cancelar una existente. */
@@ -124,7 +125,17 @@ function AppointmentForm({ onOpenChange, client, appointment, defaultDate }: {
           <DialogFooter className="flex-wrap">
             {appointment && editable && (
               <>
-                <Button variant="destructive" size="lg" onClick={() => setStatus.mutate("cancelled")}>Cancelar cita</Button>
+                <ConfirmButton
+                  variant="destructive"
+                  size="lg"
+                  disabled={setStatus.isPending}
+                  title="¿Cancelar esta cita?"
+                  description={<>La cita de {who?.fullName} del {formatDateTime(appointment.startsAt)} deja de aparecer en la agenda. Al cliente no se le avisa: llámalo si hace falta.</>}
+                  confirmLabel="Cancelar cita"
+                  onConfirm={() => setStatus.mutate("cancelled")}
+                >
+                  Cancelar cita
+                </ConfirmButton>
                 {appointment.status === "scheduled" && (
                   <Button variant="outline" size="lg" onClick={() => setStatus.mutate("confirmed")}>Marcar confirmada</Button>
                 )}

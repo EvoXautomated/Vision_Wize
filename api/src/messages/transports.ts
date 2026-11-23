@@ -13,7 +13,14 @@ export interface SendResult {
 const log = new Logger('Messages');
 
 /** Correo con Resend (https://resend.com). Sin RESEND_API_KEY: modo prueba. */
-export async function sendEmail(to: string, subject: string, text: string, footer: string): Promise<SendResult> {
+export async function sendEmail(
+  to: string,
+  subject: string,
+  text: string,
+  footer: string,
+  /** Enlace de baja: añade las cabeceras de baja con un clic (RFC 8058). */
+  unsubscribeUrl?: string,
+): Promise<SendResult> {
   const key = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM;
   if (!key || !from) {
@@ -23,7 +30,15 @@ export async function sendEmail(to: string, subject: string, text: string, foote
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from, to, subject, text: `${text}\n\n${footer}` }),
+    body: JSON.stringify({
+      from,
+      to,
+      subject,
+      text: `${text}\n\n${footer}`,
+      ...(unsubscribeUrl
+        ? { headers: { 'List-Unsubscribe': `<${unsubscribeUrl}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } }
+        : {}),
+    }),
   });
   if (!res.ok) return { ok: false, error: `Resend ${res.status}: ${await res.text()}` };
   const data = (await res.json().catch(() => ({}))) as { id?: string };

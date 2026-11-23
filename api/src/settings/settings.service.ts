@@ -43,8 +43,8 @@ export const DEFAULT_SETTINGS = {
     signature: 'Mi Óptica',
     /** Textos con variables {nombre}, {optica}, {fecha}, {hora}, {telefono}, {resena}. */
     templates: {
-      exam_reminder: 'Hola {nombre}, ya pasó un año de su último examen de la vista en {optica}. ¿Le damos cita? Llame al {telefono}.',
-      exam_reminder_2: 'Hola {nombre}, su revisión anual de la vista en {optica} sigue pendiente. Pida su cita al {telefono}.',
+      exam_reminder: 'Hola {nombre}, ya le toca su revisión de la vista en {optica}. ¿Le damos cita? Llame al {telefono}.',
+      exam_reminder_2: 'Hola {nombre}, su revisión de la vista en {optica} sigue pendiente. Pida su cita al {telefono}.',
       appt_confirmation: 'Hola {nombre}, su cita en {optica} es el {fecha} a las {hora}. Para cambiarla llame al {telefono}.',
       appt_reminder: 'Hola {nombre}, le recordamos su cita mañana {fecha} a las {hora} en {optica}.',
       ready: 'Hola {nombre}, ¡sus lentes ya están listos! Puede pasar a recogerlos en {optica}.',
@@ -105,6 +105,15 @@ export class SettingsService {
       update: { value: value as Prisma.InputJsonValue },
     });
     this.cache = undefined;
+    if (key === 'examReminderMonths') await this.recomputeExamDue(value as number);
+  }
+
+  /** Al cambiar los meses de revisión se mueve la próxima revisión de todos los clientes. */
+  private recomputeExamDue(months: number) {
+    return this.prisma.$executeRaw`
+      UPDATE "Client"
+      SET "nextExamDue" = ("lastExamAt" + make_interval(months => ${months}::int))::date
+      WHERE "lastExamAt" IS NOT NULL`;
   }
 
   /** Permisos efectivos por rol (defaults + ajustes de la óptica). */

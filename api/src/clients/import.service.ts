@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { AuditService } from '../audit/audit.service.js';
 import type { AuthUser } from '../common/decorators.js';
+import { looksClinical } from '../common/clinical.js';
 import { fold, normalizeEmail, normalizePhone, toDate } from '../common/normalize.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -52,6 +53,8 @@ export interface ImportRowReport {
   status: 'new' | 'duplicate' | 'error';
   errors: string[];
   duplicateOf?: string;
+  /** La nota no se importa: parece una graduación, un diagnóstico o un seguro. */
+  noteSkipped?: boolean;
 }
 
 @Injectable()
@@ -80,7 +83,7 @@ export class ImportService {
     };
   }
 
-  async run(input: Record<string, unknown>[], dryRun: boolean, user: AuthUser) {
+  async run(input: Record<string, unknown>[], dryRun: boolean, user: AuthUser, includeNotes = false) {
     const { rows, unknownColumns } = this.mapRows(input);
     const existing = await this.prisma.client.findMany({
       where: { deletedAt: null, mergedIntoId: null },
@@ -134,7 +137,11 @@ export class ImportService {
         return;
       }
       keys.forEach((k) => seen.set(k, rowNum));
-      report.push({ row: rowNum, name, status: 'new', errors: [] });
+      // Las notas solo entran si se pide, y nunca las que parecen datos clínicos.
+      const rawNote = r.notes ? String(r.notes) : undefined;
+      const noteSkipped = !!rawNote && looksClinical(rawNote);
+      const note = includeNotes && !noteSkipped ? rawNote : undefined;
+      report.push({ row: rowNum, name, status: 'new', errors: [], ...(noteSkipped ? { noteSkipped } : {}) });
       toCreate.push({
         data: {
           firstName: first,
@@ -148,7 +155,7 @@ export class ImportService {
           source: r.source ? String(r.source) : 'Importación',
         },
         tags: r.tags ? String(r.tags).split(/[,;|]/).map((t) => t.trim()).filter(Boolean) : [],
-        notes: r.notes ? String(r.notes) : undefined,
+        notes: note,
       });
     });
 
@@ -157,6 +164,10 @@ export class ImportService {
       new: report.filter((r) => r.status === 'new').length,
       duplicates: report.filter((r) => r.status === 'duplicate').length,
       errors: report.filter((r) => r.status === 'error').length,
+      /** Notas que se guardarán (0 si no se pidió importarlas). */
+      notes: toCreate.filter((c) => c.notes).length,
+      /** Notas descartadas por parecer graduaciones, diagnósticos o seguros. */
+      notesSkipped: report.filter((r) => r.noteSkipped).length,
     };
     if (dryRun) return { dryRun: true, summary, unknownColumns, rows: report };
 

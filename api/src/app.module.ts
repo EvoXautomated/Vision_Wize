@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { CampaignsModule } from './campaigns/campaigns.module.js';
 import { ClientsModule } from './clients/clients.module.js';
 import { DashboardModule } from './dashboard/dashboard.controller.js';
+import { validateEnv } from './common/env.js';
 import { PermissionsGuard } from './common/permissions.guard.js';
 import { HealthController } from './health/health.controller.js';
 import { MessagesModule } from './messages/messages.module.js';
@@ -21,7 +22,7 @@ import { VisitsModule } from './visits/visits.module.js';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
     ScheduleModule.forRoot(),
     PrismaModule,
     AuditModule,

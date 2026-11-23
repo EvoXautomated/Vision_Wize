@@ -7,6 +7,7 @@ import { shopDate } from '../common/tz.js';
 import {
   CampaignStatus,
   Channel,
+  ContactPref,
   MessageKind,
   MessageStatus,
   Prisma,
@@ -52,11 +53,13 @@ export class CampaignsService {
     return { AND: and };
   }
 
-  /** Quién del segmento puede recibir por este canal: dato de contacto, permiso y sin baja. */
+  /** Quién del segmento puede recibir por este canal: dato de contacto, permiso, sin baja y que quiera mensajes. */
   private reachable(channel: Channel): Prisma.ClientWhereInput {
+    // «No quiere avisos» y «prefiere llamada» quedan fuera aunque haya consentimiento.
+    const wantsMessages = { contactPref: { in: [ContactPref.sms, ContactPref.email] }, unsubscribedAt: null };
     return channel === Channel.sms
-      ? { phone: { not: null }, smsConsentAt: { not: null }, unsubscribedAt: null }
-      : { email: { not: null }, emailConsentAt: { not: null }, unsubscribedAt: null };
+      ? { ...wantsMessages, phone: { not: null }, smsConsentAt: { not: null } }
+      : { ...wantsMessages, email: { not: null }, emailConsentAt: { not: null } };
   }
 
   /** Cuántos entran en el segmento, a cuántos se puede escribir y por qué no al resto. */
@@ -77,7 +80,7 @@ export class CampaignsService {
       matched,
       reachable,
       unsubscribed,
-      // Sin teléfono/correo o sin consentimiento para este canal.
+      // Sin teléfono/correo, sin consentimiento para este canal o que no quieren mensajes.
       noConsent: matched - reachable - unsubscribed,
       sample: sample.map((c) => `${c.firstName} ${c.lastName}`.trim()),
     };

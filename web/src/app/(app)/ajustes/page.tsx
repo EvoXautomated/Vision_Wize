@@ -5,6 +5,7 @@ import { DownloadIcon, PlusIcon, UploadIcon } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { TAG_COLOR_NAMES, TagBadge } from "@/components/badges"
+import { ConfirmButton } from "@/components/confirm-button"
 import { NativeSelect } from "@/components/native-select"
 import { Badge } from "@/components/ui/badge"
 import { FormField } from "@/components/form-field"
@@ -16,11 +17,11 @@ import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { api, download } from "@/lib/api"
-import { MESSAGE_KIND_LABEL, plural, ROLE_LABEL } from "@/lib/format"
+import { formatDateTime, MESSAGE_KIND_LABEL, plural, ROLE_LABEL } from "@/lib/format"
 import { smsParts } from "@/lib/gsm"
 import { cn } from "@/lib/utils"
 import { useSession } from "@/lib/session"
-import type { Role, Settings, Tag, User } from "@/lib/types"
+import type { Device, Role, Settings, Tag, User } from "@/lib/types"
 
 export default function SettingsPage() {
   const { can } = useSession()
@@ -37,7 +38,7 @@ export default function SettingsPage() {
           <TabsTrigger value="tags">Etiquetas</TabsTrigger>
           <TabsTrigger value="data">Importar y exportar</TabsTrigger>
         </TabsList>
-        <TabsContent value="team"><TeamTab /></TabsContent>
+        <TabsContent value="team" className="grid gap-4"><TeamTab /><DevicesCard /></TabsContent>
         <TabsContent value="permissions"><PermissionsTab /></TabsContent>
         <TabsContent value="messages"><MessagesTab /></TabsContent>
         <TabsContent value="business"><BusinessTab /></TabsContent>
@@ -147,10 +148,85 @@ function UserForm({ user, onClose, onSaved }: { user: User | "new"; onClose: () 
           )}
         </div>
         <DialogFooter>
-          {!isNew && <Button variant="destructive" size="lg" onClick={() => remove.mutate()}>Dar de baja</Button>}
+          {!isNew && (
+            <ConfirmButton
+              variant="destructive"
+              size="lg"
+              disabled={remove.isPending}
+              title={`¿Dar de baja a ${existing?.fullName}?`}
+              description="Deja de aparecer en la pantalla de entrada y se cierran sus sesiones. Sus clientes, visitas y notas se conservan."
+              confirmLabel="Dar de baja"
+              onConfirm={() => remove.mutate()}
+            >
+              Dar de baja
+            </ConfirmButton>
+          )}
           <Button size="lg" disabled={fullName.trim().length < 2 || !pinOk || save.isPending} onClick={() => save.mutate()}>Guardar</Button>
         </DialogFooter>
       </DialogContent>
+  )
+}
+
+// ───────────────────────── Dispositivos ─────────────────────────
+
+function DevicesCard() {
+  const qc = useQueryClient()
+  const devices = useQuery({ queryKey: ["devices"], queryFn: () => api<Device[]>("/devices") })
+  const code = useMutation({
+    mutationFn: () => api<{ code: string; expiresAt: string }>("/devices/pairing-code", "POST"),
+    onError: (e) => toast.error(e.message),
+  })
+  const revoke = useMutation({
+    mutationFn: (id: string) => api(`/devices/${id}`, "DELETE"),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["devices"] }); toast.success("Dispositivo quitado") },
+    onError: (e) => toast.error(e.message),
+  })
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Dispositivos autorizados</CardTitle>
+        <CardDescription>
+          Solo desde estos dispositivos se puede entrar con PIN. Para autorizar otro, genera un código y escríbelo en ese dispositivo al abrir la app.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-3">
+        <ul className="divide-y rounded-lg border">
+          {devices.data?.map((d) => (
+            <li key={d.id} className="flex items-center gap-3 p-3">
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-medium">{d.name}</span>
+                <span className="block text-sm text-muted-foreground">
+                  {d.lastSeenAt ? `Último uso: ${formatDateTime(d.lastSeenAt, "d MMM yyyy, h:mm a")}` : "Sin usar todavía"}
+                </span>
+              </span>
+              {d.current ? (
+                <Badge variant="outline">Este dispositivo</Badge>
+              ) : (
+                <ConfirmButton
+                  variant="ghost"
+                  disabled={revoke.isPending}
+                  title={`¿Quitar «${d.name}»?`}
+                  description="Se cierran sus sesiones y ya no se podrá entrar desde él hasta autorizarlo otra vez con un código."
+                  confirmLabel="Quitar dispositivo"
+                  onConfirm={() => revoke.mutate(d.id)}
+                >
+                  Quitar
+                </ConfirmButton>
+              )}
+            </li>
+          ))}
+        </ul>
+        {code.data && (
+          <p className="rounded-lg bg-muted/60 p-3 text-sm" aria-live="polite">
+            Código: <b className="text-lg tracking-widest tabular-nums" translate="no">{code.data.code.slice(0, 4)} {code.data.code.slice(4)}</b>
+            <span className="block text-muted-foreground">Sirve una sola vez y caduca a las {formatDateTime(code.data.expiresAt, "h:mm a")}.</span>
+          </p>
+        )}
+        <Button size="lg" variant="outline" className="justify-self-start" disabled={code.isPending} onClick={() => code.mutate()}>
+          <PlusIcon /> Autorizar otro dispositivo
+        </Button>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -386,7 +462,7 @@ function TagsTab() {
   const refresh = () => qc.invalidateQueries({ queryKey: ["tags"] })
   const create = useMutation({ mutationFn: () => api("/tags", "POST", { name, color }), onSuccess: () => { setName(""); refresh() }, onError: (e) => toast.error(e.message) })
   const update = useMutation({ mutationFn: ({ id, color }: { id: string; color: string }) => api(`/tags/${id}`, "PATCH", { color }), onSuccess: refresh })
-  const remove = useMutation({ mutationFn: (id: string) => api(`/tags/${id}`, "DELETE"), onSuccess: () => { refresh(); toast.success("Etiqueta eliminada") } })
+  const remove = useMutation({ mutationFn: (id: string) => api(`/tags/${id}`, "DELETE"), onSuccess: () => { refresh(); toast.success("Etiqueta eliminada") }, onError: (e) => toast.error(e.message) })
   return (
     <Card>
       <CardHeader><CardTitle>Etiquetas</CardTitle><CardDescription>Para clasificar clientes y elegir a quién escribir.</CardDescription></CardHeader>
@@ -398,7 +474,16 @@ function TagsTab() {
               <NativeSelect className="w-32" value={t.color} onChange={(e) => update.mutate({ id: t.id, color: e.target.value })}>
                 {TAG_COLOR_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
               </NativeSelect>
-              <Button variant="ghost" onClick={() => remove.mutate(t.id)}>Eliminar</Button>
+              <ConfirmButton
+                variant="ghost"
+                disabled={remove.isPending}
+                title={`¿Eliminar la etiqueta «${t.name}»?`}
+                description={t.clients ? `Se quita de ${plural(t.clients, "cliente", "clientes")}. No se puede deshacer.` : "No la tiene ningún cliente."}
+                confirmLabel="Eliminar etiqueta"
+                onConfirm={() => remove.mutate(t.id)}
+              >
+                Eliminar
+              </ConfirmButton>
             </li>
           ))}
         </ul>
@@ -418,7 +503,7 @@ function TagsTab() {
 
 interface ImportReport {
   dryRun: boolean
-  summary: { total: number; new: number; duplicates: number; errors: number }
+  summary: { total: number; new: number; duplicates: number; errors: number; notes: number; notesSkipped: number }
   unknownColumns: string[]
   rows: { row: number; name: string; status: "new" | "duplicate" | "error"; errors: string[]; duplicateOf?: string }[]
 }
@@ -476,9 +561,10 @@ function DataTab() {
   const [rows, setRows] = useState<Record<string, unknown>[] | null>(null)
   const [fileName, setFileName] = useState("")
   const [report, setReport] = useState<ImportReport | null>(null)
+  const [includeNotes, setIncludeNotes] = useState(false)
 
   const check = useMutation({
-    mutationFn: (dryRun: boolean) => api<ImportReport>("/clients/import", "POST", { rows, dryRun }),
+    mutationFn: (dryRun: boolean) => api<ImportReport>("/clients/import", "POST", { rows, dryRun, includeNotes }),
     onSuccess: (r) => {
       setReport(r)
       if (!r.dryRun) {
@@ -506,7 +592,7 @@ function DataTab() {
   const { mutate } = check
   useEffect(() => {
     if (rows) mutate(true)
-  }, [rows, mutate])
+  }, [rows, includeNotes, mutate])
 
   return (
     <div className="grid gap-4">
@@ -514,12 +600,21 @@ function DataTab() {
         <CardHeader>
           <CardTitle>Importar clientes desde Excel</CardTitle>
           <CardDescription>
-            Columnas que se reconocen: Nombre, Apellidos (o Nombre completo), Teléfono, Correo, Fecha de nacimiento, Dirección, Último examen, Etiquetas y Notas.
+            Columnas que se reconocen: Nombre, Apellidos (o Nombre completo), Teléfono, Correo, Fecha de nacimiento, Dirección, Último examen y Etiquetas.
             Primero verás un informe; nada se guarda hasta que confirmes. Los importados no reciben mensajes de marketing hasta que den su consentimiento.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
           <input ref={input} type="file" accept=".xlsx,.csv" className="hidden" onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = "" }} />
+          <label className="flex items-center justify-between gap-3 rounded-lg border p-3">
+            <span>
+              <span className="block text-sm font-medium">Importar también la columna «Notas»</span>
+              <span className="block text-sm text-muted-foreground">
+                Revísala antes: las graduaciones, los diagnósticos y los seguros médicos no se pueden guardar. Las notas que lo parezcan se descartan solas.
+              </span>
+            </span>
+            <Switch checked={includeNotes} onCheckedChange={setIncludeNotes} />
+          </label>
           <Button size="lg" variant="outline" className="justify-self-start" onClick={() => input.current?.click()}><UploadIcon /> Elegir archivo</Button>
           {report && (
             <div className="grid gap-3">
@@ -527,6 +622,12 @@ function DataTab() {
                 <b>{fileName}</b>: {report.summary.total} filas · <span className="text-success">{report.summary.new} nuevos</span> ·{" "}
                 {report.summary.duplicates} ya existen · <span className="text-destructive">{report.summary.errors} con errores</span>
               </p>
+              {(includeNotes || report.summary.notesSkipped > 0) && (
+                <p className="text-sm text-muted-foreground">
+                  {includeNotes ? `${plural(report.summary.notes, "nota se importa", "notas se importan")}. ` : ""}
+                  {report.summary.notesSkipped > 0 && `${plural(report.summary.notesSkipped, "nota se descarta", "notas se descartan")} porque parecen graduaciones, diagnósticos o seguros.`}
+                </p>
+              )}
               {report.unknownColumns.length > 0 && (
                 <p className="text-sm text-muted-foreground">Columnas que no se importan: {report.unknownColumns.join(", ")}</p>
               )}
