@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { PlusIcon, SearchIcon } from "lucide-react"
 import { useState } from "react"
-import { ClientFormDialog } from "@/components/client-form"
+import { NewClientDialog } from "@/components/client-form"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -43,8 +43,9 @@ export function ClientPicker({ open, onOpenChange, title, onPick }: {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
           <div className="relative">
-            <SearchIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input autoFocus className="pl-9" placeholder="Nombre, teléfono o correo" value={q} onChange={(e) => setQ(e.target.value)} />
+            <SearchIcon aria-hidden className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            {/* Único campo del diálogo, que se abre para buscar: el foco inicial es intencionado. */}
+            <Input autoFocus type="search" name="q" autoComplete="off" aria-label="Buscar cliente" className="pl-9" placeholder="Nombre, teléfono o correo…" value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
           <ul className="grid max-h-80 gap-1 overflow-y-auto">
             {results.data?.items.map((c) => (
@@ -64,7 +65,7 @@ export function ClientPicker({ open, onOpenChange, title, onPick }: {
           )}
         </DialogContent>
       </Dialog>
-      <ClientFormDialog open={creating} onOpenChange={setCreating} onSaved={pick} />
+      <NewClientDialog open={creating} onOpenChange={setCreating} onSaved={pick} />
     </>
   )
 }

@@ -44,6 +44,14 @@ Los dos webhooks comprueban la firma `X-Twilio-Signature` con `TWILIO_AUTH_TOKEN
 
 Los SMS de marketing terminan con «Resp. STOP para darse de baja.», que no lleva tildes a propósito: una sola tilde hace que el SMS pase de 160 a 70 caracteres por tramo.
 
+**Prueba de extremo a extremo**: crea una base desechable (`<base>_e2e`), aplica migraciones y semilla, arranca la API compilada y pasa la prueba de humo. Necesita el Postgres de `docker-compose` en marcha.
+
+```bash
+npm --prefix api run test:e2e
+```
+
+**En producción** (`NODE_ENV=production`) la API no arranca sin `APP_SECRET` (32 caracteres o más), `PUBLIC_API_URL` con `https://` y `CORS_ORIGIN` con la dirección de la web; la semilla exige `SEED_OWNER_PIN`.
+
 **Prueba de humo** (contra una base con la semilla recién cargada):
 
 ```bash

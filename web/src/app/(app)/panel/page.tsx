@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query"
 import Link from "next/link"
 import { TagBadge } from "@/components/badges"
+import { QueryStatus } from "@/components/query-status"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { api } from "@/lib/api"
 import { formatDay, plural } from "@/lib/format"
@@ -24,7 +25,7 @@ export default function PanelPage() {
   const d = useQuery({ queryKey: ["dashboard"], queryFn: () => api<Dashboard>("/dashboard"), enabled: can("settings.manage"), refetchInterval: 60_000 })
   if (!can("settings.manage")) return <p className="p-8 text-center text-muted-foreground">Solo el dueño puede ver el panel.</p>
   const data = d.data
-  if (!data) return null
+  if (!data) return <QueryStatus query={d} label="los datos del panel" />
   const maxWeek = Math.max(1, ...data.visits.weekly.map((w) => w.visits))
   const maxSeller = Math.max(1, ...data.sellers.map((s) => s.deliveredThisMonth))
 

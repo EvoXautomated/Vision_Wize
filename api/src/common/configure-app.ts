@@ -1,9 +1,12 @@
 import { ValidationPipe } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import helmet from 'helmet';
 import { ApiExceptionFilter } from './api-exception.filter.js';
 
 /** Configuración compartida por main.ts y los tests e2e. */
 export function configureApp(app: NestExpressApplication) {
+  // Cabeceras de seguridad. Sin CSP: la API solo sirve JSON, la documentación y la página de baja.
+  app.use(helmet({ contentSecurityPolicy: false }));
   app.setGlobalPrefix('v1', { exclude: ['health'] });
   app.useBodyParser('json', { limit: '5mb' }); // importación de clientes
   app.useBodyParser('text', { limit: '5mb', type: 'text/csv' });

@@ -67,6 +67,26 @@ export const toClientJson = (c: ClientRow) => ({
   updatedAt: c.updatedAt,
 });
 
+/** Ficha de otra vendedora en un aviso de duplicado: nombre y vendedora, nada más. */
+const restrictedJson = (c: ClientRow) => ({
+  ...toClientJson(c),
+  phone: null,
+  email: null,
+  birthDate: null,
+  address: null,
+  smsConsentAt: null,
+  emailConsentAt: null,
+  unsubscribedAt: null,
+  priorExamAt: null,
+  lastExamAt: null,
+  nextExamDue: null,
+  firstVisitAt: null,
+  source: null,
+  extra: {},
+  tags: [],
+  restricted: true,
+});
+
 /** Campos que se copian de la ficha unida si la ficha que queda no los tiene. */
 const FILLABLE = [
   'phone',
@@ -170,7 +190,7 @@ export class ClientsService {
   // ───────────── Duplicados ─────────────
 
   /** Posibles duplicados: mismo teléfono, mismo correo o mismo nombre completo. */
-  async duplicates(q: DuplicatesQuery) {
+  async duplicates(q: DuplicatesQuery, user: AuthUser) {
     const phone = normalizePhone(q.phone);
     const email = normalizeEmail(q.email);
     const or: Prisma.ClientWhereInput[] = [];
@@ -193,8 +213,12 @@ export class ClientsService {
       include: clientInclude,
       take: 10,
     });
+    // De una ficha que el usuario no puede ver (otra vendedora) solo se dice
+    // que existe y de quién es, sin sus datos.
+    const visible = await this.visibleWhere(user);
+    const canSee = (c: ClientRow) => !('sellerId' in visible) || c.sellerId === user.id;
     return rows.map((c) => ({
-      ...toClientJson(c),
+      ...(canSee(c) ? toClientJson(c) : restrictedJson(c)),
       matches: [
         phone && c.phone === phone ? 'phone' : null,
         email && c.email === email ? 'email' : null,
@@ -210,9 +234,15 @@ export class ClientsService {
 
   // ───────────── Alta y edición ─────────────
 
+  private phoneOf(raw: string | null | undefined) {
+    const phone = normalizePhone(raw);
+    if (phone && (phone.length < 11 || phone.length > 15)) throw new BadRequestException('Teléfono no válido');
+    return phone;
+  }
+
   async create(dto: CreateClientDto, user: AuthUser) {
     if (!dto.force) {
-      const dups = await this.duplicates(dto);
+      const dups = await this.duplicates(dto, user);
       if (dups.length) {
         throw new ConflictException({
           message: 'Puede que este cliente ya exista',
@@ -230,7 +260,7 @@ export class ClientsService {
           firstName: dto.firstName.trim(),
           lastName: dto.lastName.trim(),
           searchKey: searchKeyOf(dto.firstName, dto.lastName),
-          phone: normalizePhone(dto.phone),
+          phone: this.phoneOf(dto.phone),
           email: normalizeEmail(dto.email),
           birthDate: toDate(dto.birthDate),
           address: dto.address?.trim() || null,
@@ -263,7 +293,7 @@ export class ClientsService {
     const data: Prisma.ClientUncheckedUpdateInput = {
       firstName: dto.firstName?.trim(),
       lastName: dto.lastName?.trim(),
-      phone: dto.phone === undefined ? undefined : normalizePhone(dto.phone),
+      phone: dto.phone === undefined ? undefined : this.phoneOf(dto.phone),
       email: dto.email === undefined ? undefined : normalizeEmail(dto.email),
       birthDate: dto.birthDate === undefined ? undefined : toDate(dto.birthDate),
       address: dto.address === undefined ? undefined : dto.address.trim() || null,
@@ -290,7 +320,7 @@ export class ClientsService {
     if (dto.phone !== undefined || dto.email !== undefined) {
       const dups = dto.force
         ? []
-        : (await this.duplicates({ phone: dto.phone, email: dto.email, excludeId: id }))
+        : (await this.duplicates({ phone: dto.phone, email: dto.email, excludeId: id }, user))
             .filter((d) => d.matches.some((m) => m !== 'name'));
       if (dups.length) {
         throw new ConflictException({

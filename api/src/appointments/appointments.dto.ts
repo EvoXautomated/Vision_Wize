@@ -1,20 +1,20 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsDateString, IsIn, IsInt, IsOptional, IsString, Matches, Max, Min } from 'class-validator';
+import { IsDateString, IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min } from 'class-validator';
 
 export class CreateAppointmentDto {
   @ApiProperty() @IsString() clientId: string;
   @ApiProperty({ example: '2026-11-25T15:00:00.000Z' }) @IsDateString() startsAt: string;
   @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() @Min(5) @Max(240) durationMin?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() doctorId?: string | null;
-  @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(2000) notes?: string;
 }
 
 export class UpdateAppointmentDto {
   @ApiPropertyOptional() @IsOptional() @IsDateString() startsAt?: string;
   @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() @Min(5) @Max(240) durationMin?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() doctorId?: string | null;
-  @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(2000) notes?: string;
 }
 
 export class AppointmentStatusDto {

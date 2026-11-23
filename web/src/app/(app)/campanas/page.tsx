@@ -86,14 +86,16 @@ export default function CampaignsPage() {
       </ul>
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
-        {editing && (
+        {editing && editing !== "new" && editing.status === "sent" ? (
+          <SentCampaign key={editing.id} campaign={editing} sellers={sellers} />
+        ) : editing ? (
           <CampaignEditor
             key={editing === "new" ? "new" : editing.id}
             campaign={editing === "new" ? null : editing}
             sellers={sellers}
             onClose={() => setEditing(null)}
           />
-        )}
+        ) : null}
       </Dialog>
     </div>
   )
@@ -120,10 +122,28 @@ function Results({ c }: { c: Campaign }) {
   )
 }
 
+/** Campaña ya enviada: solo se consulta, con sus resultados. */
+function SentCampaign({ campaign, sellers }: { campaign: Campaign; sellers: User[] }) {
+  return (
+    <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-2xl">
+      <DialogHeader><DialogTitle>{campaign.name}</DialogTitle></DialogHeader>
+      <div className="grid gap-3">
+        <p className="text-sm text-muted-foreground">{segmentLabel(campaign.segment, sellers)} · {campaign.channel === "sms" ? "SMS" : "Correo"}</p>
+        {campaign.subject && <p className="text-sm"><b>Asunto:</b> {campaign.subject}</p>}
+        <p className="rounded-lg bg-muted/60 p-3 text-sm whitespace-pre-wrap">{campaign.body}</p>
+        <Results c={campaign} />
+        {campaign.stats.queued > 0 && (
+          <p className="text-sm text-muted-foreground">Los que están en cola salen dentro del horario de envío (Ajustes → Mensajes).</p>
+        )}
+      </div>
+    </DialogContent>
+  )
+}
+
+/** Borrador de campaña (nuevo o guardado): se edita, se prueba y se envía. */
 function CampaignEditor({ campaign, sellers, onClose }: { campaign: Campaign | null; sellers: User[]; onClose: () => void }) {
   const qc = useQueryClient()
   const { user } = useSession()
-  const sent = campaign?.status === "sent"
   const [id, setId] = useState(campaign?.id ?? null)
   const [name, setName] = useState(campaign?.name ?? "")
   const [channel, setChannel] = useState<"sms" | "email">(campaign?.channel ?? "sms")
@@ -184,127 +204,113 @@ function CampaignEditor({ campaign, sellers, onClose }: { campaign: Campaign | n
 
   return (
     <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-2xl">
-      <DialogHeader><DialogTitle>{sent ? campaign!.name : id ? "Editar campaña" : "Nueva campaña"}</DialogTitle></DialogHeader>
+      <DialogHeader><DialogTitle>{id ? "Editar campaña" : "Nueva campaña"}</DialogTitle></DialogHeader>
 
-      {sent ? (
-        <div className="grid gap-3">
-          <p className="text-sm text-muted-foreground">{segmentLabel(campaign!.segment, sellers)} · {campaign!.channel === "sms" ? "SMS" : "Correo"}</p>
-          {campaign!.subject && <p className="text-sm"><b>Asunto:</b> {campaign!.subject}</p>}
-          <p className="rounded-lg bg-muted/60 p-3 text-sm whitespace-pre-wrap">{campaign!.body}</p>
-          <Results c={campaign!} />
-          {campaign!.stats.queued > 0 && (
-            <p className="text-sm text-muted-foreground">Los que están en cola salen dentro del horario de envío (Ajustes → Mensajes).</p>
-          )}
+      <div className="grid gap-4">
+        <FormField label="Nombre (solo para ti)"><Input placeholder="Navidad 2026" value={name} onChange={(e) => setName(e.target.value)} /></FormField>
+
+        <div className="grid gap-1.5">
+          <span className="text-sm font-medium text-muted-foreground">Canal</span>
+          <div className="flex gap-2">
+            {(["sms", "email"] as const).map((ch) => (
+              <Button key={ch} type="button" size="lg" variant={channel === ch ? "default" : "outline"} onClick={() => setChannel(ch)}>
+                {ch === "sms" ? <><MessageSquareIcon /> SMS</> : <><MailIcon /> Correo</>}
+              </Button>
+            ))}
+          </div>
         </div>
-      ) : (
-        <div className="grid gap-4">
-          <FormField label="Nombre (solo para ti)"><Input placeholder="Navidad 2026" value={name} onChange={(e) => setName(e.target.value)} /></FormField>
 
-          <div className="grid gap-1.5">
-            <span className="text-sm font-medium text-muted-foreground">Canal</span>
-            <div className="flex gap-2">
-              {(["sms", "email"] as const).map((ch) => (
-                <Button key={ch} type="button" size="lg" variant={channel === ch ? "default" : "outline"} onClick={() => setChannel(ch)}>
-                  {ch === "sms" ? <><MessageSquareIcon /> SMS</> : <><MailIcon /> Correo</>}
-                </Button>
+        <fieldset className="grid gap-3 rounded-lg border p-3">
+          <legend className="px-1 text-sm font-medium">¿A quién?</legend>
+          {!!tags.data?.length && (
+            <div className="flex flex-wrap gap-2">
+              {tags.data.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => toggleTag(t.name)}
+                  className={cn("h-9 rounded-full border px-3 text-sm", segment.tags?.includes(t.name) ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted")}
+                >
+                  {t.name}
+                </button>
               ))}
             </div>
-          </div>
-
-          <fieldset className="grid gap-3 rounded-lg border p-3">
-            <legend className="px-1 text-sm font-medium">¿A quién?</legend>
-            {!!tags.data?.length && (
-              <div className="flex flex-wrap gap-2">
-                {tags.data.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => toggleTag(t.name)}
-                    className={cn("h-9 rounded-full border px-3 text-sm", segment.tags?.includes(t.name) ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted")}
-                  >
-                    {t.name}
-                  </button>
-                ))}
-              </div>
-            )}
-            <div className="grid gap-3 sm:grid-cols-2">
-              <FormField label="Vendedora">
-                <NativeSelect value={segment.sellerId ?? ""} onChange={(e) => setSegment({ ...segment, sellerId: e.target.value || undefined })}>
-                  <option value="">Todas</option>
-                  {sellers.map((u) => <option key={u.id} value={u.id}>{u.fullName}</option>)}
-                  <option value="none">Sin vendedora</option>
-                </NativeSelect>
-              </FormField>
-              <FormField label="Que no vienen desde hace">
-                <NativeSelect value={segment.inactiveMonths ?? ""} onChange={(e) => setSegment({ ...segment, inactiveMonths: e.target.value ? Number(e.target.value) : undefined })}>
-                  <option value="">Da igual</option>
-                  {[6, 12, 18, 24].map((m) => <option key={m} value={m}>{m} meses</option>)}
-                </NativeSelect>
-              </FormField>
-            </div>
-            <label className="flex items-center justify-between gap-3 text-sm">
-              Cumplen años este mes
-              <Switch checked={!!segment.birthdayMonth} onCheckedChange={(v) => setSegment({ ...segment, birthdayMonth: v || undefined })} />
-            </label>
-            <label className="flex items-center justify-between gap-3 text-sm">
-              Tienen la revisión vencida
-              <Switch checked={!!segment.examOverdue} onCheckedChange={(v) => setSegment({ ...segment, examOverdue: v || undefined })} />
-            </label>
-            {preview && (
-              <p className="rounded-lg bg-muted/60 p-3 text-sm" aria-live="polite">
-                <b>{preview.reachable}</b> {preview.reachable === 1 ? "cliente lo recibirá" : "clientes lo recibirán"}
-                {preview.matched > preview.reachable && (
-                  <span className="text-muted-foreground">
-                    {" "}de {preview.matched} en el grupo ({preview.noConsent} sin {channel === "sms" ? "teléfono o permiso de SMS" : "correo o permiso de correo"}, o que no quieren mensajes
-                    {preview.unsubscribed ? `, ${preview.unsubscribed} dados de baja` : ""})
-                  </span>
-                )}
-                {!!preview.sample.length && <span className="block text-muted-foreground">Por ejemplo: {preview.sample.join(", ")}</span>}
-              </p>
-            )}
-          </fieldset>
-
-          {channel === "email" && (
-            <FormField label="Asunto"><Input value={subject} onChange={(e) => setSubject(e.target.value)} /></FormField>
           )}
-          <div className="grid gap-1.5">
-            <FormField label="Mensaje"><Textarea rows={4} value={body} onChange={(e) => setBody(e.target.value)} /></FormField>
-            <p className="text-xs text-muted-foreground">
-              Puedes usar {"{nombre}"}, {"{optica}"} y {"{telefono}"}.
-              {channel === "sms" && (
-                <> {sms.len} caracteres con el aviso de baja · <b>{plural(sms.parts, "SMS", "SMS")}</b> por cliente.
-                  {plain ? " Se envía sin tildes para que quepa en menos SMS." : !sms.gsm && " Las tildes reducen cada SMS a 70 caracteres."}</>
-              )}
-            </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <FormField label="Vendedora">
+              <NativeSelect value={segment.sellerId ?? ""} onChange={(e) => setSegment({ ...segment, sellerId: e.target.value || undefined })}>
+                <option value="">Todas</option>
+                {sellers.map((u) => <option key={u.id} value={u.id}>{u.fullName}</option>)}
+                <option value="none">Sin vendedora</option>
+              </NativeSelect>
+            </FormField>
+            <FormField label="Que no vienen desde hace">
+              <NativeSelect value={segment.inactiveMonths ?? ""} onChange={(e) => setSegment({ ...segment, inactiveMonths: e.target.value ? Number(e.target.value) : undefined })}>
+                <option value="">Da igual</option>
+                {[6, 12, 18, 24].map((m) => <option key={m} value={m}>{m} meses</option>)}
+              </NativeSelect>
+            </FormField>
           </div>
+          <label className="flex items-center justify-between gap-3 text-sm">
+            Cumplen años este mes
+            <Switch checked={!!segment.birthdayMonth} onCheckedChange={(v) => setSegment({ ...segment, birthdayMonth: v || undefined })} />
+          </label>
+          <label className="flex items-center justify-between gap-3 text-sm">
+            Tienen la revisión vencida
+            <Switch checked={!!segment.examOverdue} onCheckedChange={(v) => setSegment({ ...segment, examOverdue: v || undefined })} />
+          </label>
+          {preview && (
+            <p className="rounded-lg bg-muted/60 p-3 text-sm" aria-live="polite">
+              <b>{preview.reachable}</b> {preview.reachable === 1 ? "cliente lo recibirá" : "clientes lo recibirán"}
+              {preview.matched > preview.reachable && (
+                <span className="text-muted-foreground">
+                  {" "}de {preview.matched} en el grupo ({preview.noConsent} sin {channel === "sms" ? "teléfono o permiso de SMS" : "correo o permiso de correo"}, o que no quieren mensajes
+                  {preview.unsubscribed ? `, ${preview.unsubscribed} dados de baja` : ""})
+                </span>
+              )}
+              {!!preview.sample.length && <span className="block text-muted-foreground">Por ejemplo: {preview.sample.join(", ")}</span>}
+            </p>
+          )}
+        </fieldset>
 
-          <div className="grid gap-2 rounded-lg border p-3">
-            <span className="text-sm font-medium">Envío de prueba</span>
-            <div className="flex gap-2">
-              <Input
-                aria-label={channel === "sms" ? "Teléfono de prueba" : "Correo de prueba"}
-                inputMode={channel === "sms" ? "tel" : "email"}
-                placeholder={channel === "sms" ? "Tu teléfono" : "Tu correo"}
-                value={testTo}
-                onChange={(e) => setTestTo(e.target.value)}
-              />
-              <Button type="button" size="lg" variant="outline" disabled={!valid || !testTo || test.isPending} onClick={() => test.mutate()}>
-                Enviar prueba
-              </Button>
-            </div>
+        {channel === "email" && (
+          <FormField label="Asunto"><Input value={subject} onChange={(e) => setSubject(e.target.value)} /></FormField>
+        )}
+        <div className="grid gap-1.5">
+          <FormField label="Mensaje"><Textarea rows={4} value={body} onChange={(e) => setBody(e.target.value)} /></FormField>
+          <p className="text-xs text-muted-foreground">
+            Puedes usar {"{nombre}"}, {"{optica}"} y {"{telefono}"}.
+            {channel === "sms" && (
+              <> {sms.len} caracteres con el aviso de baja · <b>{plural(sms.parts, "SMS", "SMS")}</b> por cliente.
+                {plain ? " Se envía sin tildes para que quepa en menos SMS." : !sms.gsm && " Las tildes reducen cada SMS a 70 caracteres."}</>
+            )}
+          </p>
+        </div>
+
+        <div className="grid gap-2 rounded-lg border p-3">
+          <span className="text-sm font-medium">Envío de prueba</span>
+          <div className="flex gap-2">
+            <Input
+              aria-label={channel === "sms" ? "Teléfono de prueba" : "Correo de prueba"}
+              inputMode={channel === "sms" ? "tel" : "email"}
+              placeholder={channel === "sms" ? "Tu teléfono" : "Tu correo"}
+              value={testTo}
+              onChange={(e) => setTestTo(e.target.value)}
+            />
+            <Button type="button" size="lg" variant="outline" disabled={!valid || !testTo || test.isPending} onClick={() => test.mutate()}>
+              Enviar prueba
+            </Button>
           </div>
         </div>
-      )}
+      </div>
 
-      {!sent && (
-        <DialogFooter className="flex-wrap">
-          {id && <Button variant="ghost" size="lg" onClick={() => remove.mutate()}>Borrar</Button>}
-          <Button variant="outline" size="lg" disabled={!valid || save.isPending} onClick={() => save.mutate()}>Guardar borrador</Button>
-          <Button size="lg" disabled={!valid || !preview?.reachable || send.isPending} onClick={() => setConfirming(true)}>
-            <SendIcon /> Enviar
-          </Button>
-        </DialogFooter>
-      )}
+      <DialogFooter className="flex-wrap">
+        {id && <Button variant="ghost" size="lg" onClick={() => remove.mutate()}>Borrar</Button>}
+        <Button variant="outline" size="lg" disabled={!valid || save.isPending} onClick={() => save.mutate()}>Guardar borrador</Button>
+        <Button size="lg" disabled={!valid || !preview?.reachable || send.isPending} onClick={() => setConfirming(true)}>
+          <SendIcon /> Enviar
+        </Button>
+      </DialogFooter>
 
       <AlertDialog open={confirming} onOpenChange={setConfirming}>
         <AlertDialogContent>

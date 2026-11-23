@@ -10,6 +10,9 @@ const pin = (p: string) => bcrypt.hash(p, 10);
 async function main() {
   const owners = await prisma.user.count({ where: { role: Role.owner } });
   if (!owners) {
+    if (process.env.NODE_ENV === 'production' && !/^\d{4}$/.test(process.env.SEED_OWNER_PIN ?? '')) {
+      throw new Error('En producción indica SEED_OWNER_PIN (4 dígitos) para el PIN inicial del dueño');
+    }
     await prisma.user.create({
       data: { fullName: 'Dueño', initials: 'D', role: Role.owner, pinHash: await pin(process.env.SEED_OWNER_PIN ?? '0000') },
     });

@@ -18,6 +18,8 @@ import { DevicesService } from './devices.service.js';
 const MAX_FAILED = 5;
 const LOCK_MINUTES = 5;
 
+const WEAK_PINS = new Set(['0000', '1111', '1234', '4321', '9999']);
+
 const notLocked = () => ({
   OR: [{ pinLockedUntil: null }, { pinLockedUntil: { lte: new Date() } }],
 });
@@ -105,6 +107,8 @@ export class AuthService {
       user: toUserJson(user),
       grants: await this.settings.grantsFor(user.role),
       ...(first ? { deviceToken: first.token } : {}),
+      // PIN demasiado fácil (el inicial de la semilla, 1234…): la app pide cambiarlo.
+      ...(WEAK_PINS.has(pin) ? { weakPin: true } : {}),
     };
   }
 

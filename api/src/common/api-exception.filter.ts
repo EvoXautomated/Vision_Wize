@@ -41,6 +41,8 @@ export class ApiExceptionFilter implements ExceptionFilter {
     if (err instanceof Prisma.PrismaClientKnownRequestError) {
       if (err.code === 'P2002') return [HttpStatus.CONFLICT, 'Ese valor ya existe'];
       if (err.code === 'P2025') return [HttpStatus.NOT_FOUND, 'No encontrado'];
+      // Clave foránea: p. ej. una vendedora o un médico que no existe.
+      if (err.code === 'P2003') return [HttpStatus.BAD_REQUEST, 'La persona o el registro indicado no existe'];
     }
     // Errores de body-parser (JSON mal formado, payload demasiado grande).
     const status = (err as { status?: number })?.status;

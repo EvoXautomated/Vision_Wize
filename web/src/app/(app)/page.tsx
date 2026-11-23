@@ -6,6 +6,7 @@ import Link from "next/link"
 import { useState } from "react"
 import { toast } from "sonner"
 import { ClientPicker } from "@/components/client-picker"
+import { QueryStatus } from "@/components/query-status"
 import { nextStep, useVisitStatus, VisitDialog } from "@/components/visit-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -70,6 +71,8 @@ export default function TodayPage() {
         </div>
       </div>
 
+      <QueryStatus query={today} label="las visitas y citas de hoy" />
+
       {missingBusiness && (
         <Link href="/ajustes" className="rounded-xl border border-warning bg-warning/10 p-4 text-sm">
           <b>Completa los datos de la óptica</b> (nombre y teléfono) en Ajustes → La óptica. Se usan en los mensajes a los clientes.
@@ -87,20 +90,24 @@ export default function TodayPage() {
               {items.map((v) => {
                 const next = nextStep(v, user.role)
                 return (
-                  <Card key={v.id} size="sm" className="cursor-pointer" onClick={() => setOpen(v)}>
+                  <Card key={v.id} size="sm">
                     <CardContent className="grid gap-2">
-                      <div>
-                        <p className="font-medium">{v.client.fullName}</p>
-                        <p className="text-xs text-muted-foreground">
+                      <button
+                        type="button"
+                        className="-m-1 rounded-md p-1 text-left outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50"
+                        onClick={() => setOpen(v)}
+                      >
+                        <span className="block truncate font-medium">{v.client.fullName}</span>
+                        <span className="block text-xs text-muted-foreground">
                           {ago(v.statusAt)}{v.seller ? ` · ${v.seller.fullName}` : ""}
-                        </p>
-                      </div>
+                        </span>
+                      </button>
                       {next && (
                         <Button
                           variant="secondary"
                           size="lg"
                           disabled={status.isPending}
-                          onClick={(e) => { e.stopPropagation(); status.mutate({ id: v.id, status: next }) }}
+                          onClick={() => status.mutate({ id: v.id, status: next })}
                         >
                           {VISIT_LABEL[next]} <ArrowRightIcon />
                         </Button>
@@ -118,7 +125,7 @@ export default function TodayPage() {
         <Card className="lg:col-span-2">
           <CardHeader><CardTitle className="flex items-center gap-2"><CalendarCheckIcon className="size-4" /> Citas de hoy</CardTitle></CardHeader>
           <CardContent>
-            {!data?.appointments.length && <p className="text-sm text-muted-foreground">No hay citas para hoy.</p>}
+            {data && !data.appointments.length && <p className="text-sm text-muted-foreground">No hay citas para hoy.</p>}
             <ul className="divide-y">
               {data?.appointments.map((a) => (
                 <li key={a.id} className="flex flex-wrap items-center gap-3 py-3">
@@ -144,7 +151,7 @@ export default function TodayPage() {
         <Card>
           <CardHeader><CardTitle>Entregados hoy</CardTitle></CardHeader>
           <CardContent>
-            {!delivered.length && <p className="text-sm text-muted-foreground">Todavía ninguno.</p>}
+            {data && !delivered.length && <p className="text-sm text-muted-foreground">Todavía ninguno.</p>}
             <ul className="grid gap-2">
               {delivered.map((v) => (
                 <li key={v.id}><Link href={`/clientes/${v.client.id}`} className="hover:underline">{v.client.fullName}</Link></li>

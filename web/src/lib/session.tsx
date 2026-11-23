@@ -1,5 +1,6 @@
 "use client"
 
+import { toast } from "sonner"
 import { createContext, use, useCallback, useEffect, useState } from "react"
 import { api, ApiError, deviceStore, tokenStore } from "./api"
 import type { User } from "./types"
@@ -49,12 +50,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const login = useCallback(async (userId: string, pin: string) => {
-    const r = await api<{ token: string; user: User; grants: string[]; deviceToken?: string }>("/auth/login", "POST", { userId, pin })
+    const r = await api<{ token: string; user: User; grants: string[]; deviceToken?: string; weakPin?: boolean }>("/auth/login", "POST", { userId, pin })
     // Instalación nueva: el primer PIN correcto autoriza este dispositivo.
     if (r.deviceToken) deviceStore.set(r.deviceToken)
     tokenStore.set(r.token)
     setUser(r.user)
     setGrants(r.grants)
+    if (r.weakPin) toast.warning("Tu PIN es muy fácil de adivinar. Pídele al dueño que lo cambie en Ajustes → Equipo.", { duration: 10_000 })
   }, [])
 
   const logout = useCallback(async () => {

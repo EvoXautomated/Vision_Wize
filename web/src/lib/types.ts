@@ -50,6 +50,8 @@ export interface Client {
   createdAt: string
   updatedAt: string
   matches?: ("phone" | "email" | "name")[]
+  /** Aviso de duplicado de una ficha que este usuario no puede ver: llega sin sus datos. */
+  restricted?: boolean
 }
 
 export interface Visit {

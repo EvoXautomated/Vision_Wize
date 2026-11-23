@@ -45,8 +45,8 @@ export class ClientsController {
   /** Aviso al registrar: ¿ya existe alguien con ese teléfono, correo o nombre? */
   @Can('clients.read')
   @Get('duplicates')
-  duplicates(@Query() q: DuplicatesQuery) {
-    return this.clients.duplicates(q);
+  duplicates(@Query() q: DuplicatesQuery, @CurrentUser() me: AuthUser) {
+    return this.clients.duplicates(q, me);
   }
 
   @Can('clients.export')

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { PhoneIcon } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
+import { QueryStatus } from "@/components/query-status"
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
 import { ago, formatDay, formatPhone, MESSAGE_KIND_LABEL } from "@/lib/format"
@@ -31,6 +32,7 @@ export default function CallsPage() {
         <h1 className="text-2xl font-semibold">Por llamar</h1>
         <p className="text-muted-foreground">Clientes que tienen un aviso pendiente y no tienen SMS ni correo con permiso.</p>
       </div>
+      <QueryStatus query={calls} label="las llamadas pendientes" />
       {calls.data && !calls.data.length && (
         <p className="rounded-xl border bg-card p-8 text-center text-muted-foreground">No hay llamadas pendientes. 🎉</p>
       )}

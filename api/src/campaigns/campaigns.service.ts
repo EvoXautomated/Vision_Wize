@@ -215,13 +215,6 @@ export class CampaignsService {
     const clients = await this.prisma.client.findMany({ where: { AND: [where, this.reachable(c.channel)] } });
     if (!clients.length) throw new BadRequestException('No hay nadie a quien enviar en este grupo');
 
-    // Se marca como enviada primero: un segundo clic no la duplica.
-    const claimed = await this.prisma.campaign.updateMany({
-      where: { id, status: CampaignStatus.draft },
-      data: { status: CampaignStatus.sent, sentAt: new Date(), recipients: clients.length },
-    });
-    if (!claimed.count) throw new BadRequestException('Esta campaña ya se envió');
-
     const data: Prisma.MessageCreateManyInput[] = [];
     for (const client of clients) {
       data.push({
@@ -236,7 +229,18 @@ export class CampaignsService {
         dedupeKey: `camp:${c.id}:${client.id}`,
       });
     }
-    await this.prisma.message.createMany({ data, skipDuplicates: true });
+    // Marcar como enviada y crear los mensajes van juntos: un segundo clic no
+    // la duplica y, si algo falla, la campaña sigue en borrador.
+    const claimed = await this.prisma.$transaction(async (tx) => {
+      const claim = await tx.campaign.updateMany({
+        where: { id, status: CampaignStatus.draft },
+        data: { status: CampaignStatus.sent, sentAt: new Date(), recipients: clients.length },
+      });
+      if (!claim.count) return false;
+      await tx.message.createMany({ data, skipDuplicates: true });
+      return true;
+    });
+    if (!claimed) throw new BadRequestException('Esta campaña ya se envió');
     await this.audit.log(user.id, 'campaign', id, 'send', { recipients: clients.length });
     // El envío sigue en segundo plano (no bloquea la pantalla). Fuera del
     // horario de envío quedan en cola y salen en la siguiente ventana.

@@ -1,12 +1,12 @@
 import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { type AuthUser, Can, CurrentUser } from '../common/decorators.js';
 import { MessagesService } from '../messages/messages.service.js';
 import { ClientsService } from './clients.service.js';
 
 class CalledDto {
-  @IsOptional() @IsString() outcome?: string;
+  @IsOptional() @IsString() @MaxLength(200) outcome?: string;
 }
 
 /** Lista «por llamar»: avisos para clientes sin SMS ni correo con permiso. */

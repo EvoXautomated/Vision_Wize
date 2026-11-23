@@ -9,11 +9,14 @@ export const metadata: Metadata = {
   title: "Óptica · Clientes",
   description: "Clientes, visitas y agenda de la óptica",
   appleWebApp: { capable: true, title: "Óptica", statusBarStyle: "default" },
+  icons: { icon: "/icon.svg", apple: "/apple-touch-icon.png" },
 }
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  // iPad: evita que Safari amplíe la página al enfocar un campo. El zoom con
+  // los dedos sigue funcionando (iOS no aplica este límite al gesto).
   maximumScale: 1,
   themeColor: "#ffffff",
 }

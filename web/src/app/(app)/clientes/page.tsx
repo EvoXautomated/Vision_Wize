@@ -3,12 +3,13 @@
 import { useQuery } from "@tanstack/react-query"
 import { DownloadIcon, PlusIcon, SearchIcon } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
-import { ClientFormDialog } from "@/components/client-form"
+import { NewClientDialog } from "@/components/client-form"
 import { ExamBadge, TagBadge } from "@/components/badges"
 import { NativeSelect } from "@/components/native-select"
+import { QueryStatus } from "@/components/query-status"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { api, download } from "@/lib/api"
@@ -21,26 +22,38 @@ const PAGE = 50
 export default function ClientsPage() {
   const router = useRouter()
   const { can } = useSession()
-  const [q, setQ] = useState("")
-  const [debounced, setDebounced] = useState("")
-  const [tag, setTag] = useState("")
-  const [exam, setExam] = useState("")
-  const [sellerId, setSellerId] = useState("")
-  const [page, setPage] = useState(0)
+  // La búsqueda, los filtros y la página viven en la URL: al volver de una
+  // ficha se conservan, y se pueden guardar o compartir.
+  const pathname = usePathname()
+  const search = useSearchParams()
+  const urlQ = search.get("q") ?? ""
+  const tag = search.get("etiqueta") ?? ""
+  const exam = search.get("revision") ?? ""
+  const sellerId = search.get("vendedora") ?? ""
+  const page = Math.max(0, (Number(search.get("pagina")) || 1) - 1)
+  const [q, setQ] = useState(urlQ)
   const [creating, setCreating] = useState(false)
 
+  const setParams = useCallback((patch: Record<string, string>) => {
+    const next = new URLSearchParams(search)
+    for (const [k, v] of Object.entries(patch)) {
+      if (v) next.set(k, v)
+      else next.delete(k)
+    }
+    const qs = next.toString()
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
+  }, [search, pathname, router])
+
   useEffect(() => {
-    const t = setTimeout(() => {
-      setDebounced(q.trim())
-      setPage(0)
-    }, 250)
+    const value = q.trim()
+    if (value === urlQ) return
+    const t = setTimeout(() => setParams({ q: value, pagina: "" }), 250)
     return () => clearTimeout(t)
-  }, [q])
+  }, [q, urlQ, setParams])
   // Cambiar un filtro vuelve a la primera página.
-  const filter = (set: (v: string) => void) => (e: React.ChangeEvent<HTMLSelectElement>) => {
-    set(e.target.value)
-    setPage(0)
-  }
+  const filter = (key: string) => (e: React.ChangeEvent<HTMLSelectElement>) => setParams({ [key]: e.target.value, pagina: "" })
+  const goTo = (n: number) => setParams({ pagina: n ? String(n + 1) : "" })
+  const debounced = urlQ
 
   const params = new URLSearchParams({ limit: String(PAGE), offset: String(page * PAGE) })
   if (debounced) params.set("q", debounced)
@@ -74,26 +87,28 @@ export default function ClientsPage() {
 
       <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto_auto]">
         <div className="relative">
-          <SearchIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input autoFocus className="pl-9" placeholder="Buscar por nombre, teléfono, correo o etiqueta" value={q} onChange={(e) => setQ(e.target.value)} />
+          <SearchIcon aria-hidden className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input type="search" name="q" autoComplete="off" aria-label="Buscar clientes" className="pl-9" placeholder="Buscar por nombre, teléfono, correo o etiqueta…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
-        <NativeSelect value={tag} onChange={filter(setTag)}>
+        <NativeSelect value={tag} aria-label="Etiqueta" onChange={filter("etiqueta")}>
           <option value="">Todas las etiquetas</option>
           {tags.data?.map((t) => <option key={t.id} value={t.name}>{t.name} ({t.clients})</option>)}
         </NativeSelect>
-        <NativeSelect value={exam} onChange={filter(setExam)}>
+        <NativeSelect value={exam} aria-label="Revisión" onChange={filter("revision")}>
           <option value="">Cualquier revisión</option>
           <option value="overdue">Revisión vencida</option>
           <option value="due_soon">Vence este mes</option>
         </NativeSelect>
         {can("clients.readAll") && sellers.length > 0 && (
-          <NativeSelect value={sellerId} onChange={filter(setSellerId)}>
+          <NativeSelect value={sellerId} aria-label="Vendedora" onChange={filter("vendedora")}>
             <option value="">Todas las vendedoras</option>
             {sellers.map((u) => <option key={u.id} value={u.id}>{u.fullName}</option>)}
             <option value="none">Sin vendedora</option>
           </NativeSelect>
         )}
       </div>
+
+      <QueryStatus query={list} label="los clientes" />
 
       <div className="overflow-hidden rounded-xl border bg-card">
         <table className="w-full text-sm">
@@ -129,15 +144,15 @@ export default function ClientsPage() {
 
       {total > PAGE && (
         <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>{page * PAGE + 1}–{Math.min(total, (page + 1) * PAGE)} de {total}</span>
+          <span className="tabular-nums">{page * PAGE + 1}–{Math.min(total, (page + 1) * PAGE)} de {total}</span>
           <div className="flex gap-2">
-            <Button variant="outline" disabled={page === 0} onClick={() => setPage(page - 1)}>Anterior</Button>
-            <Button variant="outline" disabled={(page + 1) * PAGE >= total} onClick={() => setPage(page + 1)}>Siguiente</Button>
+            <Button variant="outline" disabled={page === 0} onClick={() => goTo(page - 1)}>Anterior</Button>
+            <Button variant="outline" disabled={(page + 1) * PAGE >= total} onClick={() => goTo(page + 1)}>Siguiente</Button>
           </div>
         </div>
       )}
 
-      <ClientFormDialog open={creating} onOpenChange={setCreating} onSaved={(c) => router.push(`/clientes/${c.id}`)} />
+      <NewClientDialog open={creating} onOpenChange={setCreating} onSaved={(c) => router.push(`/clientes/${c.id}`)} />
     </div>
   )
 }

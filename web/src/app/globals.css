@@ -64,6 +64,15 @@
   html {
     @apply font-sans;
     scroll-behavior: smooth;
+    /* iPad: sin la espera del doble toque y sin el destello gris al tocar. */
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* Al llegar al final de un diálogo, el arrastre no mueve la página de detrás. */
+  [data-slot="dialog-content"],
+  [data-slot="alert-dialog-content"],
+  [data-slot="sheet-content"] {
+    overscroll-behavior: contain;
   }
   body {
     @apply bg-background text-foreground antialiased;

@@ -1,7 +1,7 @@
 // Prueba de humo de la Fase 1 contra una API con la semilla de prueba recién cargada.
 // Uso: API_URL=http://localhost:4001/v1 node scripts/smoke.mjs (con el mismo APP_SECRET que la API)
 import { createHmac } from 'node:crypto';
-const B = process.env.API_URL ?? 'http://localhost:4001/v1';
+const B = process.env.API_URL ?? `http://localhost:${process.env.PORT ?? 4001}/v1`;
 const team = await (await fetch(B + '/auth/team')).json();
 const id = (role, name) => team.find((u) => u.role === role && (!name || u.fullName.includes(name))).id;
 // El primer PIN correcto autoriza este «dispositivo»; los demás logins envían su token.
@@ -16,7 +16,8 @@ const owner = await login(id('owner'), '0000');
 const rec = await login(id('reception'), '1111');
 const doc = await login(id('doctor'), '2222');
 const ana = await login(id('seller', 'Ana'), '3333');
-const ok = (c, m) => console.log((c ? 'OK  ' : 'FAIL') + ' ' + m);
+let failed = 0;
+const ok = (c, m) => { if (!c) failed++; console.log((c ? 'OK  ' : 'FAIL') + ' ' + m); };
 
 let r = await ana('/clients'); ok(r.b.total === 2, `vendedora Ana ve solo sus 2 clientes (ve ${r.b.total})`);
 r = await rec('/clients?q=305 555 0101'); ok(r.b.items?.[0]?.firstName === 'María', 'búsqueda por teléfono');
@@ -126,3 +127,14 @@ r = await rec(`/clients/${pedro.id}`); ok(r.b.nextExamDue === '2027-05-20', `cam
 r = await owner('/settings', 'PUT', { examReminderMonths: 0 }); ok(r.s === 400, 'meses de revisión no válidos rechazados');
 r = await owner('/settings', 'PUT', { examReminderMonths: 12 });
 r = await rec(`/clients/${pedro.id}`); ok(r.b.nextExamDue === '2027-11-20', 'y vuelve al restaurarlos');
+// duplicados: de la ficha de otra vendedora solo se ve el nombre
+r = await ana('/clients/duplicates?phone=3055550102'); ok(r.b[0]?.restricted === true && r.b[0].phone === null && r.b[0].fullName === 'José Pérez', 'duplicado de otra vendedora sin sus datos');
+r = await rec('/clients/duplicates?phone=3055550102'); ok(r.b[0]?.phone === '13055550102' && !r.b[0].restricted, 'recepción ve el duplicado completo');
+// validaciones
+r = await rec('/clients', 'POST', { firstName: 'Tel', lastName: 'Corto', phone: '12345' }); ok(r.s === 400, 'teléfono no válido rechazado');
+r = await owner(`/clients/${pedro.id}`, 'PATCH', { sellerId: '00000000-0000-0000-0000-000000000000' }); ok(r.s === 400, 'vendedora inexistente → 400');
+r = await owner('/settings', 'PUT', { messages: { sendFromHour: 'nueve' } }); ok(r.s === 400, 'ajuste de mensajes mal formado rechazado');
+r = await owner('/settings', 'PUT', { business: { name: 'Vision Wize', phone: '305 555 0000' } }); ok(r.s === 200 && r.b.business.name === 'Vision Wize', 'ajustes de la óptica guardados');
+
+console.log(failed ? `\n${failed} comprobaciones fallaron` : '\nTodo OK');
+process.exit(failed ? 1 : 0);

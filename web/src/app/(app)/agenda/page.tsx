@@ -6,6 +6,7 @@ import { es } from "date-fns/locale"
 import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from "lucide-react"
 import { useState } from "react"
 import { AppointmentDialog } from "@/components/appointment-dialog"
+import { QueryStatus } from "@/components/query-status"
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
 import { APPT_LABEL, formatTime } from "@/lib/format"
@@ -49,6 +50,8 @@ export default function AgendaPage() {
           <Button size="lg" onClick={() => { setSelected(undefined); setDay(undefined); setOpen(true) }}><PlusIcon /> Nueva cita</Button>
         )}
       </div>
+
+      <QueryStatus query={appts} label="las citas" />
 
       <div className="grid gap-3 md:grid-cols-7">
         {days.map((d) => {

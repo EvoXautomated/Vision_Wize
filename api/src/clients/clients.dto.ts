@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   IsArray,
   IsBoolean,
   IsEmail,
@@ -11,6 +12,7 @@ import {
   IsString,
   Matches,
   Max,
+  MaxLength,
   Min,
   MinLength,
 } from 'class-validator';
@@ -19,23 +21,23 @@ import { ContactPref } from '../generated/prisma/client.js';
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 
 export class CreateClientDto {
-  @ApiProperty() @IsString() @MinLength(1) firstName: string;
-  @ApiProperty() @IsString() @MinLength(1) lastName: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() phone?: string;
-  @ApiPropertyOptional() @IsOptional() @IsEmail({}, { message: 'Correo no válido' }) email?: string;
+  @ApiProperty() @IsString() @MinLength(1) @MaxLength(80) firstName: string;
+  @ApiProperty() @IsString() @MinLength(1) @MaxLength(80) lastName: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(30) phone?: string;
+  @ApiPropertyOptional() @IsOptional() @IsEmail({}, { message: 'Correo no válido' }) @MaxLength(200) email?: string;
   @ApiPropertyOptional({ example: '1985-04-12' })
   @IsOptional() @Matches(YMD, { message: 'Fecha con formato aaaa-mm-dd' })
   birthDate?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() address?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(200) address?: string;
   @ApiPropertyOptional({ enum: ContactPref }) @IsOptional() @IsEnum(ContactPref) contactPref?: ContactPref;
   /** true: el cliente acepta SMS ahora (se guarda la fecha). false: lo retira. */
   @ApiPropertyOptional() @IsOptional() @IsBoolean() smsConsent?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() emailConsent?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() unsubscribed?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsString() sellerId?: string | null;
-  @ApiPropertyOptional() @IsOptional() @IsString() source?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(120) source?: string;
   @ApiPropertyOptional({ type: [String], description: 'Nombres de etiqueta' })
-  @IsOptional() @IsArray() @IsString({ each: true }) tags?: string[];
+  @IsOptional() @IsArray() @ArrayMaxSize(20) @IsString({ each: true }) @MaxLength(40, { each: true }) tags?: string[];
   @ApiPropertyOptional() @IsOptional() @IsObject() extra?: Record<string, unknown>;
   /** Fecha de un examen anterior al sistema (cliente que ya venía). null la borra. */
   @ApiPropertyOptional() @IsOptional() @Matches(YMD) priorExamAt?: string | null;
@@ -71,7 +73,7 @@ export class MergeDto {
 }
 
 export class NoteDto {
-  @ApiProperty() @IsString() @MinLength(1) body: string;
+  @ApiProperty() @IsString() @MinLength(1) @MaxLength(2000) body: string;
 }
 
 export class ImportDto {

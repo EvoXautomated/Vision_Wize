@@ -1,17 +1,17 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { IsOptional, IsString, MinLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { Can } from '../common/decorators.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 class TagDto {
-  @IsString() @MinLength(1) name: string;
-  @IsOptional() @IsString() color?: string;
+  @IsString() @MinLength(1) @MaxLength(40) name: string;
+  @IsOptional() @IsString() @MaxLength(20) color?: string;
 }
 
 class UpdateTagDto {
-  @IsOptional() @IsString() @MinLength(1) name?: string;
-  @IsOptional() @IsString() color?: string;
+  @IsOptional() @IsString() @MinLength(1) @MaxLength(40) name?: string;
+  @IsOptional() @IsString() @MaxLength(20) color?: string;
 }
 
 @ApiTags('tags')

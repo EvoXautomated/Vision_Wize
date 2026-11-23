@@ -1,10 +1,9 @@
 import { BadRequestException, Body, Controller, Get, Put } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { Role } from '../generated/prisma/client.js';
 import { AuditService } from '../audit/audit.service.js';
 import { Can, CurrentUser, type AuthUser } from '../common/decorators.js';
-import { PERMISSIONS } from '../common/permissions.js';
-import { DEFAULT_SETTINGS, SettingsService, type SettingKey } from './settings.service.js';
+import { SettingsService, type SettingKey } from './settings.service.js';
+import { settingError } from './settings.validation.js';
 
 @ApiTags('settings')
 @ApiBearerAuth()
@@ -24,28 +23,12 @@ export class SettingsController {
   @Can('settings.manage')
   @Put()
   async update(@Body() body: Record<string, unknown>, @CurrentUser() user: AuthUser) {
-    const roles = Object.values(Role) as string[];
+    // Se valida todo antes de guardar nada.
     for (const [key, value] of Object.entries(body)) {
-      if (!(key in DEFAULT_SETTINGS)) {
-        throw new BadRequestException(`Ajuste desconocido: ${key}`);
-      }
-      const def = DEFAULT_SETTINGS[key as SettingKey];
-      if (typeof def === 'number' && (typeof value !== 'number' || value < 0)) {
-        throw new BadRequestException(`${key} debe ser un número positivo`);
-      }
-      if (key === 'examReminderMonths' && (!Number.isInteger(value) || (value as number) < 1 || (value as number) > 60)) {
-        throw new BadRequestException('Los meses de revisión deben ser un número entero entre 1 y 60');
-      }
-      if (key === 'permissions') {
-        for (const [p, r] of Object.entries(value as object)) {
-          if (!(PERMISSIONS as string[]).includes(p) || !Array.isArray(r) || r.some((x) => !roles.includes(x))) {
-            throw new BadRequestException(`Permiso no válido: ${p}`);
-          }
-        }
-      }
-      if (typeof def === 'object' && (typeof value !== 'object' || value === null)) {
-        throw new BadRequestException(`${key} debe ser un objeto`);
-      }
+      const error = settingError(key, value);
+      if (error) throw new BadRequestException(error);
+    }
+    for (const [key, value] of Object.entries(body)) {
       await this.settings.set(key as SettingKey, value as never);
       await this.audit.log(user.id, 'setting', key, 'update', { value });
     }

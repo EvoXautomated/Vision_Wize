@@ -16,8 +16,9 @@ import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import { AppointmentDialog } from "@/components/appointment-dialog"
 import { ExamBadge, TagBadge } from "@/components/badges"
-import { ClientFormDialog } from "@/components/client-form"
+import { EditClientDialog } from "@/components/client-form"
 import { ClientPicker } from "@/components/client-picker"
+import { QueryStatus } from "@/components/query-status"
 import { VisitDialog } from "@/components/visit-dialog"
 import {
   AlertDialog,
@@ -90,10 +91,10 @@ export default function ClientPage() {
   })
 
   if (client.isError && !(client.error instanceof ApiError && client.error.status === 409)) {
-    return <p className="p-8 text-center text-muted-foreground">{client.error.message}</p>
+    return <QueryStatus query={client} label="los datos de la ficha" />
   }
   const c = client.data
-  if (!c) return null
+  if (!c) return <QueryStatus query={client} label="los datos de la ficha" />
 
   return (
     <div className="grid gap-4">
@@ -112,7 +113,7 @@ export default function ClientPage() {
           )}
           {can("clients.write") && <Button size="lg" variant="outline" onClick={() => setEditing(true)}><PencilIcon /> Editar</Button>}
           {can("clients.merge") && <Button size="lg" variant="outline" onClick={() => setMergePick(true)}><CombineIcon /> Unir duplicado</Button>}
-          {can("clients.delete") && <Button size="lg" variant="ghost" onClick={() => setDeleting(true)}><Trash2Icon /></Button>}
+          {can("clients.delete") && <Button size="lg" variant="ghost" aria-label="Eliminar ficha" onClick={() => setDeleting(true)}><Trash2Icon /></Button>}
         </div>
       </div>
 
@@ -209,7 +210,7 @@ export default function ClientPage() {
         </Tabs>
       </div>
 
-      <ClientFormDialog open={editing} onOpenChange={setEditing} client={c} onSaved={refresh} />
+      <EditClientDialog open={editing} onOpenChange={setEditing} client={c} onSaved={refresh} />
       <AppointmentDialog open={booking} onOpenChange={setBooking} client={c} appointment={appt} />
       <VisitDialog visit={visit} onOpenChange={(o) => { if (!o) { setVisit(null); refresh() } }} />
       <ClientPicker
