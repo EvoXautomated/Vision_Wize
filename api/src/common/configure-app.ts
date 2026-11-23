@@ -7,6 +7,8 @@ export function configureApp(app: NestExpressApplication) {
   app.setGlobalPrefix('v1', { exclude: ['health'] });
   app.useBodyParser('json', { limit: '5mb' }); // importación de clientes
   app.useBodyParser('text', { limit: '5mb', type: 'text/csv' });
+  // Avisos de Twilio (entrega y respuestas STOP) llegan como formulario.
+  app.useBodyParser('urlencoded', { extended: false, limit: '100kb' });
   const origins = (process.env.CORS_ORIGIN ?? '*')
     .split(',')
     .map((o) => o.trim());

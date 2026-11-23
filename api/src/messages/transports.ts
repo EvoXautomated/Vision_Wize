@@ -1,8 +1,11 @@
 import { Logger } from '@nestjs/common';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 
 export interface SendResult {
   ok: boolean;
   error?: string;
+  /** Id del mensaje en el proveedor, para enlazar los avisos de entrega. */
+  providerId?: string;
   /** Modo prueba: no se envió de verdad (faltan claves del proveedor). */
   dryRun?: boolean;
 }
@@ -22,7 +25,9 @@ export async function sendEmail(to: string, subject: string, text: string, foote
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ from, to, subject, text: `${text}\n\n${footer}` }),
   });
-  return res.ok ? { ok: true } : { ok: false, error: `Resend ${res.status}: ${await res.text()}` };
+  if (!res.ok) return { ok: false, error: `Resend ${res.status}: ${await res.text()}` };
+  const data = (await res.json().catch(() => ({}))) as { id?: string };
+  return { ok: true, providerId: data.id };
 }
 
 /** SMS con Twilio. Sin TWILIO_*: modo prueba. */
@@ -36,6 +41,10 @@ export async function sendSms(to: string, body: string): Promise<SendResult> {
   }
   const params = new URLSearchParams({ To: `+${to}`, Body: body });
   params.set(from.startsWith('MG') ? 'MessagingServiceSid' : 'From', from);
+  // Twilio avisa de la entrega (delivered/undelivered) a esta URL pública.
+  if (process.env.PUBLIC_API_URL?.startsWith('https://')) {
+    params.set('StatusCallback', `${process.env.PUBLIC_API_URL}/v1/public/twilio/status`);
+  }
   const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
     method: 'POST',
     headers: {
@@ -44,5 +53,21 @@ export async function sendSms(to: string, body: string): Promise<SendResult> {
     },
     body: params,
   });
-  return res.ok ? { ok: true } : { ok: false, error: `Twilio ${res.status}: ${await res.text()}` };
+  if (!res.ok) return { ok: false, error: `Twilio ${res.status}: ${await res.text()}` };
+  const data = (await res.json().catch(() => ({}))) as { sid?: string };
+  return { ok: true, providerId: data.sid };
+}
+
+/**
+ * Firma X-Twilio-Signature: HMAC-SHA1 (base64) de la URL completa seguida de
+ * los parámetros POST ordenados por nombre (clave+valor), con el auth token.
+ */
+export function validTwilioSignature(url: string, params: Record<string, string>, signature: string | undefined) {
+  const token = process.env.TWILIO_AUTH_TOKEN;
+  if (!token || !signature) return false;
+  const data = url + Object.keys(params).sort().map((k) => k + params[k]).join('');
+  const expected = createHmac('sha1', token).update(data).digest('base64');
+  const a = Buffer.from(expected);
+  const b = Buffer.from(signature);
+  return a.length === b.length && timingSafeEqual(a, b);
 }

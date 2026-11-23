@@ -16,9 +16,9 @@ Sistema por fases para una óptica de una sola tienda: **CRM de clientes (Fase 1
 - **Agenda**: citas por semana, con confirmación al agendar y recordatorio 24 h antes.
 - **Seguimiento automático**: revisión anual (con segundo aviso), «lentes listos», bienvenida y cumpleaños. Si se corrige la fecha del examen, el aviso se recalcula. Las bajas se respetan siempre. Los clientes sin SMS ni correo con permiso pasan a la lista *Por llamar*.
 - **Importación desde Excel/CSV** con un informe previo, y **exportación** a CSV.
+- **Campañas** por SMS o correo a un grupo de clientes (etiquetas, vendedora, cumpleaños del mes, sin venir desde hace N meses, revisión vencida). Incluyen vista previa de cuántos las recibirán, contador de SMS, envío de prueba, confirmación y resultados (enviados, entregados, en cola, fallidos y bajas). Solo reciben quienes dieron su consentimiento y no se dieron de baja.
+- **Panel del dueño**: clientes, visitas, entregas, revisiones vencidas, citas, inasistencia, mensajes, vendedoras y etiquetas.
 - **Nada se borra del todo**: borrado lógico y registro de cambios (`AuditLog`).
-
-Pendiente en la Fase 1: campañas por segmentos con envío de prueba y resultados, y el panel del dueño.
 
 ## Puesta en marcha (desarrollo)
 
@@ -35,6 +35,14 @@ cd web && cp .env.example .env.local && npm install && npm run dev   # http://lo
 La semilla crea al dueño (PIN `0000`) y, con `SEED_DEMO=true`, un equipo de prueba: recepción `1111`, médico `2222` y vendedoras `3333` y `4444`. La documentación de la API está en http://localhost:4000/docs.
 
 **Mensajes**: si no se configuran `RESEND_API_KEY`/`EMAIL_FROM` (correo) y `TWILIO_*` (SMS), los envíos quedan registrados en *modo prueba* y no salen. Para SMS en EE. UU. hace falta el registro A2P 10DLC.
+
+En Twilio, con `PUBLIC_API_URL` en `https://…`, configura en el número (o en el Messaging Service):
+- *A message comes in* → `POST {PUBLIC_API_URL}/v1/public/twilio/inbound`. Las respuestas STOP dan de baja al cliente en su ficha.
+- El estado de entrega llega solo a `/v1/public/twilio/status`.
+
+Los dos webhooks comprueban la firma `X-Twilio-Signature` con `TWILIO_AUTH_TOKEN`.
+
+Los SMS de marketing terminan con «Resp. STOP para darse de baja.», que no lleva tildes a propósito: una sola tilde hace que el SMS pase de 160 a 70 caracteres por tramo.
 
 **Prueba de humo** (contra una base con la semilla recién cargada):
 

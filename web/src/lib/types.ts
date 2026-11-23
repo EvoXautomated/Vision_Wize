@@ -110,3 +110,33 @@ export interface Settings {
   }
   permissions: Partial<Record<string, Role[]>>
 }
+
+export interface Segment {
+  tags?: string[]
+  sellerId?: string
+  birthdayMonth?: boolean
+  inactiveMonths?: number
+  examOverdue?: boolean
+}
+
+export interface Campaign {
+  id: string
+  name: string
+  channel: "sms" | "email"
+  subject: string | null
+  body: string
+  segment: Segment
+  status: "draft" | "sent"
+  sentAt: string | null
+  recipients: number
+  createdAt: string
+  stats: { queued: number; sent: number; delivered: number; failed: number; unsubscribed: number }
+}
+
+export interface CampaignPreview {
+  matched: number
+  reachable: number
+  unsubscribed: number
+  noConsent: number
+  sample: string[]
+}

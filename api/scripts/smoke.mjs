@@ -67,3 +67,15 @@ r = await owner('/clients/import', 'POST', { dryRun: true, rows: [
 ok(r.b.summary?.new === 1 && r.b.summary.errors === 2 && r.b.summary.duplicates === 1, `informe de importación ${JSON.stringify(r.b.summary)} cols desconocidas: ${r.b.unknownColumns}`);
 r = await owner('/clients/import', 'POST', { rows: [{ Nombre: 'Rosa', Apellidos: 'Díaz', Teléfono: '305 555 0300', 'Último examen': '2025-10-01' }] });
 r = await rec('/clients?q=Rosa'); ok(r.b.items?.[0]?.nextExamDue === '2026-10-01', 'importado con revisión calculada');
+// campañas y panel
+r = await rec('/campaigns'); ok(r.s === 403, 'recepción no envía campañas (por defecto)');
+r = await owner('/campaigns/preview', 'POST', { channel: 'sms', segment: { tags: ['VIP'] } }); ok(r.b.reachable === 1, `grupo VIP por SMS: ${r.b.reachable} de ${r.b.matched}`);
+r = await owner('/campaigns', 'POST', { name: 'X', channel: 'email', body: 'Hola' }); ok(r.s === 400, 'correo sin asunto rechazado');
+r = await owner('/campaigns', 'POST', { name: 'Navidad', channel: 'sms', body: 'Hola {nombre}', segment: {} }); const camp = r.b;
+r = await owner(`/campaigns/${camp.id}/test`, 'POST', { to: '305 555 0000' }); ok(r.s === 200, 'envío de prueba');
+r = await owner(`/campaigns/${camp.id}/send`, 'POST'); ok(r.s === 200 && r.b.recipients > 0, `campaña enviada a ${r.b.recipients}`);
+r = await owner(`/campaigns/${camp.id}/send`, 'POST'); ok(r.s === 400, 'no se envía dos veces');
+r = await owner('/campaigns'); ok(r.b[0].recipients > 0 && r.b[0].stats, `resultados ${JSON.stringify(r.b[0].stats)}`);
+r = await owner('/dashboard'); ok(r.s === 200 && r.b.clients.total > 0, `panel: ${r.b.clients.total} clientes, ${r.b.visits.thisMonth} visitas este mes`);
+r = await rec('/dashboard'); ok(r.s === 403, 'recepción no ve el panel');
+r = await fetch(B + '/public/twilio/inbound', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'From=%2B13055550101&Body=STOP' }); ok(r.status === 403, 'webhook de Twilio sin firma rechazado');

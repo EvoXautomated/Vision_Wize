@@ -91,3 +91,8 @@ export function examState(nextExamDue?: string | null): "overdue" | "soon" | "ok
   const soon = localYmd(new Date(Date.now() + 30 * 86_400_000))
   return nextExamDue <= soon ? "soon" : "ok"
 }
+
+/** 1 cliente / 3 clientes */
+export function plural(n: number, one: string, many: string) {
+  return `${n} ${n === 1 ? one : many}`
+}

@@ -1,7 +1,7 @@
 "use client"
 
 import { useQuery } from "@tanstack/react-query"
-import { CalendarDaysIcon, GlassesIcon, LogOutIcon, PhoneIcon, SettingsIcon, SunIcon, UsersIcon, WifiOffIcon } from "lucide-react"
+import { BarChart3Icon, CalendarDaysIcon, GlassesIcon, LogOutIcon, MegaphoneIcon, PhoneIcon, SettingsIcon, SunIcon, UsersIcon, WifiOffIcon } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect } from "react"
@@ -47,7 +47,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
   if (!user) return null
 
-  const nav = can("settings.manage") ? [...NAV, { href: "/ajustes", label: "Ajustes", icon: SettingsIcon }] : NAV
+  const nav = [
+    ...NAV,
+    ...(can("campaigns.send") ? [{ href: "/campanas", label: "Campañas", icon: MegaphoneIcon }] : []),
+    ...(can("settings.manage")
+      ? [
+          { href: "/panel", label: "Panel", icon: BarChart3Icon },
+          { href: "/ajustes", label: "Ajustes", icon: SettingsIcon },
+        ]
+      : []),
+  ]
   const active = (href: string) => (href === "/" ? path === "/" : path.startsWith(href))
 
   return (

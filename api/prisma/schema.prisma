@@ -249,12 +249,39 @@ model Message {
   body       String
   dedupeKey  String?       @unique
   campaignId String?
+  campaign   Campaign?     @relation(fields: [campaignId], references: [id])
+  providerId String?       @unique // id del proveedor (Twilio SID / Resend id) para los avisos de entrega
   error      String?
   sentAt     DateTime?
   createdAt  DateTime      @default(now())
 
   @@index([status, channel])
   @@index([clientId, createdAt])
+  @@index([campaignId])
+}
+
+enum CampaignStatus {
+  draft
+  sent
+}
+
+/// Campaña a un segmento de clientes. `segment` guarda el filtro:
+/// { tags?: string[], sellerId?: string, birthdayMonth?: boolean,
+///   inactiveMonths?: number, examOverdue?: boolean }
+model Campaign {
+  id          String         @id @default(uuid())
+  name        String
+  channel     Channel // sms o email
+  subject     String?
+  body        String
+  segment     Json           @default("{}")
+  status      CampaignStatus @default(draft)
+  createdById String
+  sentAt      DateTime?
+  recipients  Int            @default(0) // a cuántos se envió
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  messages    Message[]
 }
 
 // ───────────────────────── Ajustes y registro ─────────────────────────

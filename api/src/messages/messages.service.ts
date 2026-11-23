@@ -274,18 +274,38 @@ export class MessagesService {
     if (!force && (hour < messages.sendFromHour || hour >= messages.sendToHour)) return 0;
     const queued = await this.prisma.message.findMany({
       where: { status: MessageStatus.queued, channel: { in: [Channel.email, Channel.sms] } },
+      include: { client: { select: { unsubscribedAt: true, deletedAt: true } } },
       take: 100,
       orderBy: { createdAt: 'asc' },
     });
     for (const m of queued) {
+      // Reserva atómica: si otro envío ya lo tomó, se salta (sin SMS duplicados).
+      const claimed = await this.prisma.message.updateMany({
+        where: { id: m.id, status: MessageStatus.queued },
+        data: { status: MessageStatus.sent, sentAt: new Date() },
+      });
+      if (!claimed.count) continue;
+      // Pudo darse de baja (o borrarse la ficha) mientras esperaba en cola.
+      if (m.client && (m.client.deletedAt || (MARKETING.includes(m.kind) && m.client.unsubscribedAt))) {
+        await this.prisma.message.update({
+          where: { id: m.id },
+          data: { status: MessageStatus.skipped, sentAt: null, error: 'Se dio de baja antes del envío' },
+        });
+        continue;
+      }
       const res =
         m.channel === Channel.sms
-          ? await sendSms(m.to!, MARKETING.includes(m.kind) ? `${m.body} Resp. STOP para no recibir más.` : m.body)
+          ? await sendSms(m.to!, MARKETING.includes(m.kind) ? `${m.body} Resp. STOP para darse de baja.` : m.body)
           : await sendEmail(m.to!, m.subject ?? business.name, m.body, this.emailFooter(m.clientId, business.name));
       await this.prisma.message.update({
         where: { id: m.id },
         data: res.ok
-          ? { status: MessageStatus.sent, sentAt: new Date(), error: res.dryRun ? 'Modo prueba: sin proveedor configurado' : null }
+          ? {
+              status: MessageStatus.sent,
+              sentAt: new Date(),
+              providerId: res.providerId ?? null,
+              error: res.dryRun ? 'Modo prueba: sin proveedor configurado' : null,
+            }
           : { status: MessageStatus.failed, error: res.error?.slice(0, 500) },
       });
     }
@@ -315,6 +335,21 @@ export class MessagesService {
     });
   }
 
+  /** Envía la cola entera por tandas (campañas grandes), sin solaparse con el reloj. */
+  async flushAll() {
+    if (this.running) return;
+    this.running = true;
+    try {
+      for (let i = 0; i < 50; i++) {
+        if (!(await this.flush())) break;
+      }
+    } catch (e) {
+      this.log.error(e);
+    } finally {
+      this.running = false;
+    }
+  }
+
   /** Cada 10 minutos: seguimiento diario (idempotente), recordatorios de cita y envío. */
   @Cron(CronExpression.EVERY_10_MINUTES, { disabled: process.env.DISABLE_CRON === 'true' })
   async tick() {
@@ -324,7 +359,9 @@ export class MessagesService {
       const { messages } = await this.settings.all();
       if (shopHour() >= messages.sendFromHour) await this.dailyFollowUps();
       await this.appointmentReminders();
-      await this.flush();
+      for (let i = 0; i < 50; i++) {
+        if (!(await this.flush())) break;
+      }
     } catch (e) {
       this.log.error(e);
     } finally {

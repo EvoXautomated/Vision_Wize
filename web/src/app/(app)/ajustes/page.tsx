@@ -16,7 +16,7 @@ import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { api, download } from "@/lib/api"
-import { MESSAGE_KIND_LABEL, ROLE_LABEL } from "@/lib/format"
+import { MESSAGE_KIND_LABEL, plural, ROLE_LABEL } from "@/lib/format"
 import { useSession } from "@/lib/session"
 import type { Role, Settings, Tag, User } from "@/lib/types"
 
@@ -359,7 +359,7 @@ function TagsTab() {
         <ul className="divide-y rounded-lg border">
           {tags.data?.map((t) => (
             <li key={t.id} className="flex items-center gap-3 p-3">
-              <span className="flex-1"><TagBadge tag={t} /> <span className="ml-2 text-sm text-muted-foreground">{t.clients} clientes</span></span>
+              <span className="flex-1"><TagBadge tag={t} /> <span className="ml-2 text-sm text-muted-foreground">{plural(t.clients ?? 0, "cliente", "clientes")}</span></span>
               <NativeSelect className="w-32" value={t.color} onChange={(e) => update.mutate({ id: t.id, color: e.target.value })}>
                 {TAG_COLOR_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
               </NativeSelect>

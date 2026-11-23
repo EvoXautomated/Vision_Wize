@@ -6,7 +6,9 @@ import { AppointmentsModule } from './appointments/appointments.module.js';
 import { AuditModule } from './audit/audit.module.js';
 import { AuthGuard } from './auth/auth.guard.js';
 import { AuthModule } from './auth/auth.module.js';
+import { CampaignsModule } from './campaigns/campaigns.module.js';
 import { ClientsModule } from './clients/clients.module.js';
+import { DashboardModule } from './dashboard/dashboard.controller.js';
 import { PermissionsGuard } from './common/permissions.guard.js';
 import { HealthController } from './health/health.controller.js';
 import { MessagesModule } from './messages/messages.module.js';
@@ -32,6 +34,8 @@ import { VisitsModule } from './visits/visits.module.js';
     VisitsModule,
     AppointmentsModule,
     TodayModule,
+    CampaignsModule,
+    DashboardModule,
   ],
   controllers: [HealthController],
   providers: [
