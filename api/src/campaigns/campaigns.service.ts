@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { AuditService } from '../audit/audit.service.js';
 import type { AuthUser } from '../common/decorators.js';
+import { toGsm } from '../common/gsm.js';
 import { addMonths, normalizeEmail, normalizePhone, toDate } from '../common/normalize.js';
 import { shopDate } from '../common/tz.js';
 import {
@@ -192,7 +193,8 @@ export class CampaignsService {
     if (c.channel === Channel.sms) {
       const phone = normalizePhone(to);
       if (!phone || phone.length < 11) throw new BadRequestException('Teléfono no válido');
-      res = await sendSms(phone, `[PRUEBA] ${body}${SMS_FOOTER}`);
+      const text = `[PRUEBA] ${body}${SMS_FOOTER}`;
+      res = await sendSms(phone, messages.smsPlainText ? toGsm(text) : text);
     } else {
       const email = normalizeEmail(to);
       if (!email?.includes('@')) throw new BadRequestException('Correo no válido');

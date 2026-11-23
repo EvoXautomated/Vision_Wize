@@ -17,6 +17,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { api, download } from "@/lib/api"
 import { MESSAGE_KIND_LABEL, plural, ROLE_LABEL } from "@/lib/format"
+import { smsParts } from "@/lib/gsm"
+import { cn } from "@/lib/utils"
 import { useSession } from "@/lib/session"
 import type { Role, Settings, Tag, User } from "@/lib/types"
 
@@ -269,11 +271,23 @@ function MessagesForm({ settings, save }: { settings: Settings; save: ReturnType
             <NumberField label="Enviar desde (hora)" value={m.sendFromHour} onChange={(v) => setM({ sendFromHour: v })} />
             <NumberField label="Enviar hasta (hora)" value={m.sendToHour} onChange={(v) => setM({ sendToHour: v })} />
           </div>
+          <label className="flex items-center justify-between gap-3 rounded-lg border p-3">
+            <span>
+              <span className="block text-sm">Enviar los SMS sin tildes</span>
+              <span className="block text-xs text-muted-foreground">
+                Un SMS sin tildes admite 160 caracteres; con una sola tilde, 70. Así cada aviso cuesta 1 SMS en vez de 2. El correo conserva las tildes.
+              </span>
+            </span>
+            <Switch checked={m.smsPlainText} onCheckedChange={(v) => setM({ smsPlainText: v })} />
+          </label>
           <FormField label="Firma de los mensajes"><Input value={m.signature} onChange={(e) => setM({ signature: e.target.value })} /></FormField>
           <div className="grid gap-3">
             <p className="text-sm text-muted-foreground">Textos. Puedes usar {"{nombre}"}, {"{optica}"}, {"{telefono}"}, {"{fecha}"}, {"{hora}"} y {"{resena}"}.</p>
             {TEMPLATE_KINDS.map((k) => (
-              <FormField key={k} label={MESSAGE_KIND_LABEL[k]}><Textarea rows={2} value={m.templates[k] ?? ""} onChange={(e) => setM({ templates: { ...m.templates, [k]: e.target.value } })} /></FormField>
+              <div key={k} className="grid gap-1">
+                <FormField label={MESSAGE_KIND_LABEL[k]}><Textarea rows={2} value={m.templates[k] ?? ""} onChange={(e) => setM({ templates: { ...m.templates, [k]: e.target.value } })} /></FormField>
+                <SmsCount text={m.templates[k] ?? ""} kind={k} plain={m.smsPlainText} signature={m.signature} phone={draft.business.phone} />
+              </div>
             ))}
           </div>
           <div className="flex flex-wrap gap-2">
@@ -306,6 +320,27 @@ function MessagesForm({ settings, save }: { settings: Settings; save: ReturnType
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+const MARKETING_KINDS = ["exam_reminder", "exam_reminder_2", "welcome", "birthday"]
+
+/** Cuántos SMS cuesta un texto automático, con valores de ejemplo en las variables. */
+function SmsCount({ text, kind, plain, signature, phone }: { text: string; kind: string; plain: boolean; signature: string; phone: string }) {
+  const sample: Record<string, string> = {
+    nombre: "María",
+    optica: signature || "Mi Óptica",
+    telefono: phone || "(305) 555-0100",
+    fecha: "lunes 24 de noviembre",
+    hora: "10:00 a. m.",
+    resena: "https://g.page/r/xxxxxxxx",
+  }
+  const filled = text.replace(/\{(\w+)\}/g, (x, v: string) => sample[v] ?? x)
+  const { parts, len } = smsParts(filled, { plain, footer: MARKETING_KINDS.includes(kind) })
+  return (
+    <span className={cn("text-xs", parts > 1 ? "text-warning-foreground" : "text-muted-foreground")}>
+      Por SMS: ~{len} caracteres · {plural(parts, "SMS", "SMS")}
+    </span>
   )
 }
 

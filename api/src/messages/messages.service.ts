@@ -14,6 +14,7 @@ import {
 } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SettingsService } from '../settings/settings.service.js';
+import { toGsm } from '../common/gsm.js';
 import { sendEmail, sendSms } from './transports.js';
 
 /** Mensajes de seguimiento/marketing: se respeta la baja. */
@@ -293,9 +294,11 @@ export class MessagesService {
         });
         continue;
       }
+      const smsText = MARKETING.includes(m.kind) ? `${m.body} Resp. STOP para darse de baja.` : m.body;
+      const smsBody = messages.smsPlainText ? toGsm(smsText) : smsText;
       const res =
         m.channel === Channel.sms
-          ? await sendSms(m.to!, MARKETING.includes(m.kind) ? `${m.body} Resp. STOP para darse de baja.` : m.body)
+          ? await sendSms(m.to!, smsBody)
           : await sendEmail(m.to!, m.subject ?? business.name, m.body, this.emailFooter(m.clientId, business.name));
       await this.prisma.message.update({
         where: { id: m.id },
@@ -304,6 +307,8 @@ export class MessagesService {
               status: MessageStatus.sent,
               sentAt: new Date(),
               providerId: res.providerId ?? null,
+              // Se guarda el texto tal como lo recibió el cliente.
+              ...(m.channel === Channel.sms ? { body: smsBody } : {}),
               error: res.dryRun ? 'Modo prueba: sin proveedor configurado' : null,
             }
           : { status: MessageStatus.failed, error: res.error?.slice(0, 500) },

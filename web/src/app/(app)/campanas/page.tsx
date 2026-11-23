@@ -25,24 +25,10 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/lib/api"
 import { formatDateTime, plural } from "@/lib/format"
+import { smsParts } from "@/lib/gsm"
 import { useSession } from "@/lib/session"
-import type { Campaign, CampaignPreview, Segment, Tag, User } from "@/lib/types"
+import type { Campaign, CampaignPreview, Segment, Settings, Tag, User } from "@/lib/types"
 import { cn } from "@/lib/utils"
-
-// Caracteres del alfabeto GSM-7 (sin ellos, un SMS pasa a 70 caracteres por tramo).
-const GSM = new Set(
-  "@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !\"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà^{}\\[~]|€",
-)
-const SMS_FOOTER = " Resp. STOP para darse de baja."
-
-/** Cuántos SMS cobra el operador por este texto (con el pie de baja). */
-function smsParts(text: string) {
-  const full = text + SMS_FOOTER
-  const gsm = [...full].every((c) => GSM.has(c))
-  const len = [...full].length
-  const [single, multi] = gsm ? [160, 153] : [70, 67]
-  return { len, gsm, parts: len <= single ? 1 : Math.ceil(len / multi) }
-}
 
 function segmentLabel(s: Segment, sellers: User[]) {
   const parts: string[] = []
@@ -148,6 +134,8 @@ function CampaignEditor({ campaign, sellers, onClose }: { campaign: Campaign | n
   const [confirming, setConfirming] = useState(false)
   const [preview, setPreview] = useState<CampaignPreview | null>(null)
   const tags = useQuery({ queryKey: ["tags"], queryFn: () => api<Tag[]>("/tags") })
+  const settings = useQuery({ queryKey: ["settings"], queryFn: () => api<Settings>("/settings") })
+  const plain = settings.data?.messages.smsPlainText ?? true
 
   // Cuántos lo recibirían, en vivo mientras se elige el grupo.
   useEffect(() => {
@@ -187,7 +175,7 @@ function CampaignEditor({ campaign, sellers, onClose }: { campaign: Campaign | n
     onError: (e) => toast.error(e.message),
   })
 
-  const sms = smsParts(body)
+  const sms = smsParts(body, { plain })
   const valid = name.trim() && body.trim() && (channel === "sms" || subject.trim())
   const toggleTag = (t: string) => {
     const cur = segment.tags ?? []
@@ -284,7 +272,8 @@ function CampaignEditor({ campaign, sellers, onClose }: { campaign: Campaign | n
             <p className="text-xs text-muted-foreground">
               Puedes usar {"{nombre}"}, {"{optica}"} y {"{telefono}"}.
               {channel === "sms" && (
-                <> {sms.len} caracteres con el aviso de baja · <b>{sms.parts} SMS</b> por cliente{!sms.gsm && " (las tildes y algunos signos reducen el tamaño de cada SMS a 70 caracteres)"}.</>
+                <> {sms.len} caracteres con el aviso de baja · <b>{plural(sms.parts, "SMS", "SMS")}</b> por cliente.
+                  {plain ? " Se envía sin tildes para que quepa en menos SMS." : !sms.gsm && " Las tildes reducen cada SMS a 70 caracteres."}</>
               )}
             </p>
           </div>

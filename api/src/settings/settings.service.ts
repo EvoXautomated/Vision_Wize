@@ -37,13 +37,15 @@ export const DEFAULT_SETTINGS = {
     } as Record<string, boolean>,
     /** Ventana de envío en hora local de la tienda (los avisos fuera de ella esperan). */
     sendFromHour: 9,
+    /** SMS sin tildes (GSM-7): 160 caracteres por SMS en vez de 70. El correo las conserva. */
+    smsPlainText: true,
     sendToHour: 20,
     signature: 'Mi Óptica',
     /** Textos con variables {nombre}, {optica}, {fecha}, {hora}, {telefono}, {resena}. */
     templates: {
-      exam_reminder: 'Hola {nombre}, ya pasó un año desde su último examen de la vista en {optica}. ¿Le agendamos su revisión? Llámenos al {telefono}.',
-      exam_reminder_2: 'Hola {nombre}, le recordamos que tiene pendiente su revisión anual en {optica}. Estamos para ayudarle: {telefono}.',
-      appt_confirmation: 'Hola {nombre}, su cita en {optica} quedó para el {fecha} a las {hora}. Si necesita cambiarla, llámenos al {telefono}.',
+      exam_reminder: 'Hola {nombre}, ya pasó un año de su último examen de la vista en {optica}. ¿Le damos cita? Llame al {telefono}.',
+      exam_reminder_2: 'Hola {nombre}, su revisión anual de la vista en {optica} sigue pendiente. Pida su cita al {telefono}.',
+      appt_confirmation: 'Hola {nombre}, su cita en {optica} es el {fecha} a las {hora}. Para cambiarla llame al {telefono}.',
       appt_reminder: 'Hola {nombre}, le recordamos su cita mañana {fecha} a las {hora} en {optica}.',
       ready: 'Hola {nombre}, ¡sus lentes ya están listos! Puede pasar a recogerlos en {optica}.',
       welcome: 'Hola {nombre}, gracias por visitarnos en {optica}. Para lo que necesite, estamos al {telefono}.',

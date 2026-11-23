@@ -106,6 +106,7 @@ export interface Settings {
     sendFromHour: number
     sendToHour: number
     signature: string
+    smsPlainText: boolean
     templates: Record<string, string>
   }
   permissions: Partial<Record<string, Role[]>>
